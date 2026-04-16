@@ -1,7 +1,133 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
-import { HAND_CONNECTIONS, Hands } from '@mediapipe/hands';
 import { detectGesture } from '../utils/gestureUtils';
+
+const HANDS_CDN_BASE_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands';
+const DRAWING_UTILS_CDN_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js';
+
+let mediaPipeRuntimePromise = null;
+let HandsConstructorRef = null;
+let handConnectionsRef = [];
+let drawConnectorsRef = null;
+let drawLandmarksRef = null;
+
+function getGlobalScope() {
+  if (typeof window !== 'undefined') {
+    return window;
+  }
+
+  if (typeof globalThis !== 'undefined') {
+    return globalThis;
+  }
+
+  return null;
+}
+
+function loadExternalScript(src) {
+  return new Promise((resolve, reject) => {
+    const scope = getGlobalScope();
+
+    if (!scope || !scope.document) {
+      reject(new Error('Document is unavailable for script loading.'));
+      return;
+    }
+
+    const existing = scope.document.querySelector(`script[data-neuroflux-src="${src}"]`);
+
+    if (existing) {
+      if (existing.getAttribute('data-loaded') === 'true') {
+        resolve();
+        return;
+      }
+
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error(`Failed to load script: ${src}`)), {
+        once: true
+      });
+      return;
+    }
+
+    const script = scope.document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.crossOrigin = 'anonymous';
+    script.setAttribute('data-neuroflux-src', src);
+
+    script.addEventListener(
+      'load',
+      () => {
+        script.setAttribute('data-loaded', 'true');
+        resolve();
+      },
+      { once: true }
+    );
+
+    script.addEventListener('error', () => reject(new Error(`Failed to load script: ${src}`)), {
+      once: true
+    });
+
+    scope.document.head.appendChild(script);
+  });
+}
+
+function captureMediaPipeGlobals() {
+  const scope = getGlobalScope() ?? {};
+
+  return {
+    hands: scope.Hands,
+    handConnections: Array.isArray(scope.HAND_CONNECTIONS) ? scope.HAND_CONNECTIONS : [],
+    drawConnectors: scope.drawConnectors,
+    drawLandmarks: scope.drawLandmarks
+  };
+}
+
+async function ensureMediaPipeRuntime() {
+  const runtimeReady =
+    typeof HandsConstructorRef === 'function' &&
+    handConnectionsRef.length > 0 &&
+    typeof drawConnectorsRef === 'function' &&
+    typeof drawLandmarksRef === 'function';
+
+  if (runtimeReady) {
+    return;
+  }
+
+  if (!mediaPipeRuntimePromise) {
+    mediaPipeRuntimePromise = (async () => {
+      let globals = captureMediaPipeGlobals();
+
+      if (
+        typeof globals.hands !== 'function' ||
+        typeof globals.drawConnectors !== 'function' ||
+        typeof globals.drawLandmarks !== 'function'
+      ) {
+        await loadExternalScript(`${HANDS_CDN_BASE_URL}/hands.js`);
+        await loadExternalScript(DRAWING_UTILS_CDN_URL);
+        globals = captureMediaPipeGlobals();
+      }
+
+      if (typeof globals.hands !== 'function') {
+        throw new Error('MediaPipe Hands runtime unavailable after script load.');
+      }
+
+      if (
+        typeof globals.drawConnectors !== 'function' ||
+        typeof globals.drawLandmarks !== 'function'
+      ) {
+        throw new Error('MediaPipe drawing utilities unavailable after script load.');
+      }
+
+      HandsConstructorRef = globals.hands;
+      handConnectionsRef = globals.handConnections;
+      drawConnectorsRef = globals.drawConnectors;
+      drawLandmarksRef = globals.drawLandmarks;
+    })().catch((error) => {
+      mediaPipeRuntimePromise = null;
+      throw error;
+    });
+  }
+
+  await mediaPipeRuntimePromise;
+}
 
 const EMPTY_RESULT = {
   handLandmarks: [],
@@ -671,7 +797,7 @@ function drawEnergyAura(context, canvas, landmarks, gesture, nowMs) {
   context.lineJoin = 'round';
   context.lineWidth = Math.max(1.4, radiusPx * 0.035);
 
-  HAND_CONNECTIONS.forEach(([start, end]) => {
+  handConnectionsRef.forEach(([start, end]) => {
     const startPoint = points[start];
     const endPoint = points[end];
 
@@ -1384,14 +1510,18 @@ export function useHandTracking({
         });
       }
 
-      if (settings.showLandmarks) {
+      if (
+        settings.showLandmarks &&
+        typeof drawConnectorsRef === 'function' &&
+        typeof drawLandmarksRef === 'function'
+      ) {
         multiHandLandmarks.forEach((landmarks) => {
-          drawConnectors(context, landmarks, HAND_CONNECTIONS, {
+          drawConnectorsRef(context, landmarks, handConnectionsRef, {
             color: '#f97316',
             lineWidth: 4
           });
 
-          drawLandmarks(context, landmarks, {
+          drawLandmarksRef(context, landmarks, {
             color: '#0f766e',
             fillColor: '#5eead4',
             lineWidth: 2,
@@ -1550,8 +1680,14 @@ export function useHandTracking({
     setIsLoading(true);
 
     try {
-      const hands = new Hands({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+      await ensureMediaPipeRuntime();
+
+      if (typeof HandsConstructorRef !== 'function') {
+        throw new Error('MediaPipe Hands constructor is unavailable.');
+      }
+
+      const hands = new HandsConstructorRef({
+        locateFile: (file) => `${HANDS_CDN_BASE_URL}/${file}`
       });
 
       hands.setOptions(HANDS_DEFAULT_OPTIONS);
