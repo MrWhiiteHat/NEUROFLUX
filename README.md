@@ -1,122 +1,115 @@
-# NeuroFlux - AI Gesture-Based Energy Simulation System
+# NeuroFlux Camera Gesture Drawing Studio
 
-NeuroFlux is a production-ready, real-time multimodal AI platform where users control digital energy (fire, ice, lightning, fusion) with hand gestures and voice commands.
+NeuroFlux is a camera-first hand-gesture drawing app.
 
-Pipeline:
+You draw directly on top of the live webcam feed using real-time hand tracking, with a full studio control panel for brush styling, particle effects, AR templates, overlays, and editing tools.
 
-Input (gesture + voice)
--> AI Intent Engine
--> Physics Simulation
--> Cinematic Rendering
--> Interactive Experience Layer
+## What This Project Includes
 
-## Core Features
+- Live camera feed with overlay canvas drawing
+- Real-time hand tracking using MediaPipe Hands
+- Gesture detection with robust fallback logic
+- Trigger-based drawing and erasing modes
+- Advanced brush styling and blend effects
+- Particle brush FX system with multiple modes
+- AR practice templates (shape guides)
+- Undo, redo, clear, export PNG
+- Responsive studio layout for desktop and mobile
 
-- Module 1: Multimodal Input System
-  - Webcam via WebRTC (`getUserMedia`)
-  - MediaPipe Hands (21 landmarks per hand)
-  - Gesture detection: `OPEN_HAND`, `FIST`, `PINCH`, `TWO_HANDS`
-  - Continuous Web Speech API voice recognition
-  - Structured JSON payload generation:
-    - `gesture`, `handsCount`, `voiceCommand`, `timestamp`
+## Current Gesture Support
 
-- Module 2: AI Intent Engine
-  - Rule-based intent mapping from gesture + voice
-  - Supported intents:
-    - `FIRE_CHARGE`, `FIRE_ATTACK`, `ICE_ATTACK`, `LIGHTNING_ATTACK`, `FUSION`
-  - State machine:
-    - `IDLE`, `CHARGING`, `ACTIVE`, `COOLDOWN`
-  - Confidence scoring and intensity modeling
-  - Context memory with recent history
+- NO_HANDS
+- TWO_HANDS
+- PINCH
+- POINT
+- V_SIGN
+- OPEN_HAND
+- FIST
+- UNKNOWN
 
-- Module 3: Simulation and Physics
-  - Three.js scene + Cannon-es world
-  - Object factory:
-    - Fireball
-    - Ice shard
-    - Lightning beam
-  - Projectile collisions and explosion effects
-  - Particle systems and target objects
-  - Public simulation API: `simulateIntent(intentData)`
+Default draw trigger is AUTO, which accepts PINCH, POINT, and V_SIGN.
 
-- Module 4: Rendering Engine
-  - Advanced dynamic lighting
-  - Custom GLSL materials and shaders (`glow`, `distortion`)
-  - Post-processing: Bloom + FXAA + distortion pass
-  - Camera effects: shake + dynamic zoom
+## Studio Controls
 
-- Module 5: Experience Layer
-  - Game modes:
-    - `TARGET_PRACTICE`
-    - `FREE_PLAY`
-  - Target system and scoring logic
-  - Animated HUD + controls (Framer Motion)
-  - Realtime status and telemetry panels
+The panel includes:
 
-## Central Controller (Mandatory Integration)
+- Tool mode: draw or erase
+- Trigger gesture selection
+- Brush color, presets, size, opacity, glow, smoothness, blend mode
+- Brush pattern: solid, dashed, dotted
+- Rainbow brush and mirror modes (horizontal, vertical)
+- Particle FX: mode, density, size, lifetime, spread, speed
+- Overlay toggles: aura, landmarks, fusion link, draw cursor
+- Stroke auto-fade and lifetime
+- AR template controls: template type, color, opacity, scale, offset
+- Editing actions: undo, redo, clear, export
 
-Core orchestration lives in:
+## Particle Brush FX Modes
 
-- `src/core/coreController.js`
+- none
+- spark
+- magic
+- ember
+- smoke
 
-Pipeline function:
+Particle emission is continuous while gesture-drawing is active, including low-motion scenarios.
 
-```js
-processInput(inputData) {
-  const intent = getIntent(inputData);
-  simulateIntent(intent);
-  renderScene(intent);
-  updateGameState(intent);
-}
-```
+## MediaPipe Production Compatibility (Vercel)
 
-The app runs this pipeline on `requestAnimationFrame` for realtime interaction.
+To avoid Hands constructor runtime issues in production bundles, this project uses a runtime loader strategy in the hand-tracking hook:
 
-## Project Structure
+- Loads MediaPipe Hands and drawing utils scripts from CDN when needed
+- Captures Hands, HAND_CONNECTIONS, drawConnectors, and drawLandmarks from global scope
+- Initializes tracking only after runtime APIs are confirmed available
+
+This makes production deployments significantly more reliable.
+
+## Tech Stack
+
+- React 18
+- Vite 5
+- MediaPipe Hands
+- Tailwind CSS + custom CSS
+- ESLint
+
+Additional dependencies are present for future/legacy modules.
+
+## Project Structure (Current)
 
 ```text
 src/
-├── core/
-│   ├── input/
-│   │   ├── inputSanitizer.js
-│   │   ├── handPoseMapper.js
-│   │   └── multimodalInputService.js
-│   ├── ai/
-│   │   ├── intentService.js
-│   │   └── intentService.test.js
-│   ├── simulation/
-│   │   └── simulationService.js
-│   ├── rendering/
-│   │   └── renderingService.js
-│   ├── experience/
-│   │   ├── targetSystem.js
-│   │   ├── gameStateManager.js
-│   │   └── gameStateManager.test.js
-│   ├── coreController.js
-│   └── corePipeline.examples.js
-├── components/
-│   ├── CameraFeed.jsx
-│   ├── HandTracker.jsx
-│   ├── VoiceInput.jsx
-│   ├── ExperienceHUD.jsx
-│   └── GameControls.jsx
-├── hooks/
-│   ├── useCamera.js
-│   ├── useHandTracking.js
-│   ├── useVoiceRecognition.js
-│   └── useCoreController.js
-├── simulation/
-├── rendering/
-├── physics/
-├── particles/
-├── shaders/
-├── assets/
-├── App.jsx
-├── main.jsx
-└── styles.css
+  App.jsx
+  main.jsx
+  styles.css
+  components/
+    HandTracker.jsx
+  context/
+    InputContext.jsx
+  drawing-engine/
+    components/
+      CameraGestureDock.jsx
+      DrawingStudio.jsx
+      index.js
+  hooks/
+    useCamera.js
+    useHandTracking.js
+  utils/
+    gestureUtils.js
+docs/
+  cinematic_fusion_pipeline/
 ```
 
-## Installation
+## Architecture Overview
+
+Runtime flow:
+
+1. App mounts DrawingStudio
+2. CameraGestureDock starts webcam via useCamera
+3. HandTracker runs useHandTracking on the same video/canvas pair
+4. Gesture data is normalized and published through InputContext
+5. Draw engine renders strokes, particles, overlays, and templates in real time
+
+## Local Setup
 
 Requirements:
 
@@ -129,116 +122,103 @@ Install dependencies:
 npm install
 ```
 
-## Run
-
-Development:
+Run development server:
 
 ```bash
 npm run dev
 ```
 
-Production build:
+Build for production:
 
 ```bash
 npm run build
+```
+
+Preview production build locally:
+
+```bash
 npm run preview
 ```
 
-## Tests and Examples
-
-Run module tests:
+Lint:
 
 ```bash
-npm run test:intent
-npm run test:simulation
-npm run test:rendering
-npm run test:core:ai
-npm run test:core:experience
+npm run lint
 ```
 
-Run all tests in sequence:
+## NPM Scripts
+
+Primary scripts used for this app:
+
+- npm run dev
+- npm run build
+- npm run preview
+- npm run lint
+- npm test
+
+The package file also includes legacy script entries for larger prior modules. Those scripts may require files not present in the current trimmed workspace.
+
+## Deploy to Vercel
+
+### Option A: Vercel Dashboard (Recommended)
+
+1. Push code to GitHub.
+2. Open https://vercel.com/new
+3. Import repository.
+4. Confirm build settings:
+   - Install command: npm install
+   - Build command: npm run build
+   - Output directory: dist
+5. Deploy.
+
+### Option B: Vercel CLI
 
 ```bash
-npm run test:all
+npm i -g vercel
+vercel login
+vercel
+vercel --prod
 ```
 
-Run examples:
+## Troubleshooting
 
-```bash
-npm run example:intent
-npm run example:simulation
-npm run example:rendering
-npm run example:core
-```
+### Camera does not start
 
-## Mandatory Test Cases
+- Allow camera permission in browser site settings
+- Use HTTPS or localhost
+- Retry using the in-app Retry Camera button
 
-- `OPEN_HAND + "ignite" -> FIRE_CHARGE`
-- `FIST -> FIRE_ATTACK`
-- `TWO_HANDS -> FUSION`
+### Hand tracking does not initialize
 
-These are validated in:
+- Check network access to jsdelivr CDN
+- Hard refresh the page after deploy
+- Confirm latest deployment contains the runtime loader changes
 
-- `src/core/ai/intentService.test.js`
+### Particle FX not visible
 
-## Demo Flow (Must Work)
+- Ensure draw mode is active and trigger is detected
+- Set Particle Mode to something other than none
+- Increase density and size in panel controls
 
-1. Open hand -> fire charge appears.
-2. Say "ignite" -> charge grows.
-3. Close fist -> fireball launches.
-4. Hit target -> explosion + score increment (Target Practice mode).
+### Gesture seems unstable
 
-The UI also includes Demo Action buttons to quickly verify this sequence.
+- Improve lighting and hand visibility
+- Keep hand centered and avoid extreme angles
+- Use AUTO trigger for easier drawing activation
 
-## Error Handling
+## Browser Notes
 
-Handled runtime cases:
-
-- Camera permission denied
-- Microphone unavailable or blocked
-- No gesture detected
-- Invalid/unrecognized voice command
-- Controller initialization and pipeline processing errors
-
-Errors are surfaced through HUD and Runtime Alerts panels.
-
-## Performance Notes
-
-- Realtime loop driven by `requestAnimationFrame`
-- Dynamic import for heavy simulation/rendering stack
-- Fixed-step physics update
-- Particle and active object caps
-- Runtime post-processing toggles for performance tuning
-
-## Browser Compatibility
-
-Recommended:
+Best experience:
 
 - Chrome (latest)
 - Edge (latest)
 
-Supported with caveats:
+Other browsers may work but camera and performance behavior can vary.
 
-- Firefox (speech recognition support may vary)
-- Safari (Web Speech API behavior depends on version/platform)
+## Additional Docs
 
-Permissions note:
+- Cinematic workflow docs: docs/cinematic_fusion_pipeline/README.md
 
-- Camera/microphone access requires localhost or HTTPS.
+## Maintainer
 
-## Debug Logs
-
-Debug logs are emitted under `debug: true` in services/controller:
-
-- Input payload normalization and warnings
-- AI intent processing outputs
-- Simulation events and impacts
-- Core pipeline processing snapshots
-
-Use browser DevTools console to inspect logs during demo.
-
-## Cinematic Video Generation Docs
-
-Additional AI-cinematic generation pipeline docs are available at:
-
-- `docs/cinematic_fusion_pipeline/README.md`
+GitHub: MrWhiiteHat
