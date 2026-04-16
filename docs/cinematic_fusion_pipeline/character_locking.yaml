@@ -1,0 +1,63 @@
+character_locking:
+  objective: preserve the same person, face geometry, and costume through all stages
+
+  reference_assets:
+    primary_reference_image: stage_01_idle_stance final frame
+    secondary_reference_images:
+      - neutral face close-up from stage 01
+      - side-angle face frame from stage 01
+    reuse_policy: always feed primary reference into every stage generation call
+
+  seed_strategy:
+    base_seed: 418273991
+    stage_seed_offsets:
+      stage_01_idle_stance: 0
+      stage_02_energy_ignition: 11
+      stage_03_energy_growth: 23
+      stage_04_energy_collision: 37
+      stage_05_final_fusion_heart: 53
+    shot_seed_rule: keep fixed seed within each stage for consistency, vary only by minor offset for retries
+
+  face_consistency:
+    strategy:
+      - use InstantID or FaceID adapter with weight between 0.85 and 1.0
+      - use IP-Adapter image conditioning from stage 01 keyframe
+      - avoid prompt changes to age, hairstyle, facial hair, or wardrobe
+      - keep denoise strength moderate, 0.35 to 0.55 for img2img continuity
+    fallback:
+      - if identity drift occurs, regenerate using previous stage final frame as init image and lower denoise by 0.05
+
+  lora_and_embedding:
+    suggested_loras:
+      - name: detail_tweaker_xl
+        weight: 0.35
+        purpose: improve micro texture realism
+      - name: cinematic_lighting_xl
+        weight: 0.45
+        purpose: stable cinematic contrast and glow behavior
+      - name: face_consistency_helper
+        weight: 0.5
+        purpose: reduce face drift between stage cuts
+    embedding_notes:
+      - use one negative quality embedding to suppress artifacts
+      - keep embedding set constant for all stages
+
+  model_lock:
+    checkpoint_primary: juggernautXL_v9
+    vae: sdxl_vae_fp16_fix
+    clip_skip: 1
+    scheduler_family: karras
+    lock_rule: do not switch model checkpoint mid-sequence
+
+  wardrobe_and_pose_lock:
+    wardrobe: white sleeveless shirt, no accessories changes
+    pose_baseline: shoulders square to camera, hands in front of torso
+    camera_baseline: eye-level medium shot in vertical frame
+
+  continuity_validation:
+    checklist:
+      - same nose and jawline silhouette
+      - same beard density and hairline
+      - same shirt neckline and fabric color
+      - same room and fog arrangement
+      - same side assignment, fire right hand and ice left hand

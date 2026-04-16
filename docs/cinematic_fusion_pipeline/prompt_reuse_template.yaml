@@ -1,0 +1,28 @@
+prompt_reuse_template:
+  immutable_layer:
+    identity: same young man, medium build, dark hair, light stubble, white sleeveless shirt
+    environment: dark moody room, subtle fog, volumetric cinematic lighting, 9:16 vertical
+    realism: ultra realistic, high detail particles, dramatic emotional tone
+    continuity_guard: keep same face, same outfit, same background, same camera family
+
+  stage_action_layer:
+    stage_01_idle_stance: calm idle stance, both hands visible, no active energy
+    stage_02_energy_ignition: fire ignition in right hand, ice ignition in left hand
+    stage_03_energy_growth: both energies expand and intensify with strong lighting spill
+    stage_04_energy_collision: both energies collide at center with flash and shockwave
+    stage_05_final_fusion_heart: stable heart-shaped fire-ice fusion between hands
+
+  vfx_intensity_layer:
+    low: subtle particles, low bloom, minimal distortion
+    medium: visible particles, controlled bloom, moderate distortion
+    high: dense particles, strong bloom, collision distortion and steam burst
+
+  assembly_rule:
+    image_prompt_formula: immutable_layer + stage_action_layer + vfx_intensity_layer
+    video_prompt_formula: immutable_layer + stage_action_layer + continuity_motion_directives
+
+  continuity_motion_directives:
+    - preserve subject identity from stage_01 reference frame
+    - use previous stage final frame as init input
+    - keep fire right and ice left until collision stage
+    - keep camera movement smooth and progressive

@@ -1,0 +1,69 @@
+pipeline_profiles:
+  quality_profile:
+    base_model: juggernautXL_v9
+    vae: sdxl_vae_fp16_fix
+    animation_method: AnimateDiff Evolved
+    resolution: [832, 1472]
+    fps: 24
+    sampler: dpmpp_2m
+    scheduler: karras
+    steps_image: 32
+    steps_video: 24
+    cfg_image: 6.8
+    cfg_video: 6.0
+    denoise_continuity: 0.42
+    motion_module: mm_sd_v15_v2
+    ip_adapter_weight: 0.9
+
+  fast_profile:
+    base_model: realvisxl_v5
+    vae: sdxl_vae_fp16_fix
+    animation_method: AnimateDiff Evolved
+    resolution: [768, 1344]
+    fps: 24
+    sampler: euler_a
+    scheduler: karras
+    steps_image: 22
+    steps_video: 18
+    cfg_image: 6.2
+    cfg_video: 5.8
+    denoise_continuity: 0.4
+
+  low_vram_8gb_profile:
+    base_model: realisticVisionV60B1_v51HyperVAE
+    vae: vae-ft-mse-840000-ema-pruned
+    animation_method: AnimateDiff SD1.5
+    resolution: [576, 1024]
+    fps: 20
+    sampler: dpmpp_sde
+    scheduler: karras
+    steps_image: 18
+    steps_video: 14
+    cfg_image: 5.8
+    cfg_video: 5.4
+    denoise_continuity: 0.38
+    enable_vae_tiling: true
+    batch_size: 1
+
+stage_overrides:
+  stage_01_idle_stance:
+    steps_video: 16
+    cfg_video: 5.6
+  stage_02_energy_ignition:
+    steps_video: 20
+    cfg_video: 6.0
+  stage_03_energy_growth:
+    steps_video: 24
+    cfg_video: 6.2
+  stage_04_energy_collision:
+    steps_video: 26
+    cfg_video: 6.5
+  stage_05_final_fusion_heart:
+    steps_video: 24
+    cfg_video: 6.1
+
+consistency_rules:
+  lock_seed_within_stage: true
+  seed_formula: base_seed + stage_offset + retry_index
+  reuse_reference_every_stage: true
+  use_previous_final_frame_as_init: true

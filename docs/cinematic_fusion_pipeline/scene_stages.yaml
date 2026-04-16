@@ -1,0 +1,140 @@
+project:
+  concept: Fire and Ice Energy Fusion in Human Hands
+  output_aspect_ratio: 9:16
+  target_duration_seconds: 6.6
+  style:
+    realism: ultra realistic
+    tone: emotional and dramatic
+    lighting: cinematic volumetric lighting
+    quality_target: unreal-engine-level detail
+  continuity:
+    character_anchor: same male subject, medium build, dark hair, slight stubble, white sleeveless shirt
+    environment_anchor: dark moody room, subtle fog, no location changes
+    camera_anchor: 50mm cinematic lens feel, shallow depth of field
+    color_anchor: teal-orange cinematic grade, warm fire and cool ice separation
+    background_anchor: low-key gradient background, no extra actors
+  global_negative_prompt: low quality, blurry, cartoon, duplicate face, extra arms, malformed hands, inconsistent outfit, text artifacts, logo, watermark, overexposed skin
+
+stages:
+  - id: stage_01_idle_stance
+    title: Idle Stance
+    duration_seconds: 1.1
+    objective: establish character identity and calm pose before energy ignition
+    image_prompt: >
+      ultra realistic cinematic portrait of the same young man standing still,
+      both hands forward and slightly apart, neutral expression, dark moody background,
+      subtle atmospheric haze, volumetric rim light, teal-orange cinematic color grading,
+      skin pores detailed, realistic hand anatomy, 50mm lens look, shallow depth of field,
+      high dynamic range lighting, 9:16 vertical composition
+    video_prompt: >
+      A vertical cinematic shot of the same man in idle stance with both hands open.
+      The camera slowly pushes in from chest framing to medium close-up.
+      Ambient fog moves very slightly. No energy yet, only suspense and subtle breathing motion.
+      Keep identity and outfit exactly the same.
+    continuity_instructions:
+      - lock the same face embedding and reference image from this stage for all next stages
+      - keep same shirt, hair shape, and background layout
+      - preserve camera height and facing angle
+    animation_notes:
+      camera_motion: very slow dolly in
+      facial_expression: focused and calm
+      particle_activity: almost none
+
+  - id: stage_02_energy_ignition
+    title: Energy Ignition
+    duration_seconds: 1.1
+    objective: start separate fire and ice activation in opposite hands
+    image_prompt: >
+      same man and same room, left hand forming bright blue ice core,
+      right hand forming orange fire spark, tiny embers and frost motes,
+      subtle heat haze on fire side, cool mist on ice side,
+      cinematic contrast lighting, volumetric highlights on fingers,
+      high detail particles, realistic skin reflections, vertical 9:16
+    video_prompt: >
+      Continue from previous shot with seamless continuity.
+      Fire ignites in the right palm with sparks and embers.
+      Ice ignites in the left palm with crystalline glow and cold mist.
+      Keep camera mostly stable with slight handheld tension.
+      Preserve face and body identity exactly.
+    continuity_instructions:
+      - use previous stage final frame as image conditioning input
+      - maintain hand orientation and body position
+      - ensure fire on right hand and ice on left hand in all frames
+    animation_notes:
+      camera_motion: micro handheld drift only
+      fire_behavior: sparks, embers, heat distortion
+      ice_behavior: frost particles, cold mist, blue rim glow
+
+  - id: stage_03_energy_growth
+    title: Energy Growth
+    duration_seconds: 1.4
+    objective: intensify both energy systems and build anticipation
+    image_prompt: >
+      same character, fire sphere growing in right hand and ice sphere growing in left hand,
+      denser particles, stronger volumetric light cones, brighter reflections on face,
+      dramatic cinematic lighting, high detail embers and frost shards,
+      realistic hand tension and finger articulation, dark atmospheric background,
+      vertical composition with both hands visible
+    video_prompt: >
+      The fire and ice energies expand in the same hands.
+      Fire creates swirling orange-red plasma with heat refraction.
+      Ice creates dense cyan-white crystalline aura with vapor flow.
+      Light intensity rises progressively while the character holds control.
+      Keep the same identity and framing continuity.
+    continuity_instructions:
+      - no costume or hairstyle change
+      - preserve same camera side and distance progression
+      - maintain consistent background darkness and fog density
+    animation_notes:
+      camera_motion: gentle push-in and slight upward tilt
+      intensity_curve: linear rise from 0.35 to 0.8
+      particle_density: increase every 6 to 8 frames
+
+  - id: stage_04_energy_collision
+    title: Energy Collision
+    duration_seconds: 1.2
+    objective: collide both energy masses at center frame with dramatic impact
+    image_prompt: >
+      same character pulling both energy spheres toward center,
+      fire and ice streams colliding in front of chest,
+      bright white collision core, steam plume, chromatic light split,
+      shockwave ring forming, volumetric god rays, intense cinematic bloom,
+      dramatic emotional face expression, ultra detailed particles, vertical 9:16
+    video_prompt: >
+      The character forcefully moves both hands inward.
+      Fire and ice collide at center producing steam, light burst, and distortion ripple.
+      Create a short impact flash and expanding shockwave ring.
+      Preserve same subject and location continuity.
+    continuity_instructions:
+      - collision center must stay near chest centerline
+      - preserve right-hand fire and left-hand ice lineage into collision
+      - carry over particle colors from stage 3
+    animation_notes:
+      camera_motion: quick micro-zoom at impact frame
+      impact_fx: flash frame plus radial shockwave
+      interaction_fx: steam, light blending, temporary desaturation then recovery
+
+  - id: stage_05_final_fusion_heart
+    title: Final Fusion Heart
+    duration_seconds: 1.8
+    objective: resolve collision into a luminous heart-shaped fusion energy
+    image_prompt: >
+      same character holding a floating heart-shaped energy fusion between hands,
+      heart made of blended fire orange and ice cyan plasma,
+      balanced warm and cool lighting on face, gentle steam trails,
+      fine sparkles and crystalline fragments orbiting,
+      cinematic heroic framing, emotional expression, ultra realistic detail,
+      volumetric glow halo, vertical 9:16 composition
+    video_prompt: >
+      From collision aftermath, energy stabilizes into a heart-shaped fusion core.
+      The character slowly brings hands around the glowing heart.
+      Fire and ice blend smoothly without losing color identity.
+      End on a dramatic hold with pulsing heart light and subtle camera settle.
+    continuity_instructions:
+      - keep same character identity, hair, outfit, and background
+      - maintain motion continuity from collision to calm hold
+      - preserve color blend logic: warm right bias plus cool left bias
+    animation_notes:
+      camera_motion: slow settle and slight orbit
+      pulse_pattern: 2 to 3 visible heart pulses before cut
+      final_frame: clean hero frame for thumbnail extraction

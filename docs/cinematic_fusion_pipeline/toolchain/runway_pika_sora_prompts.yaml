@@ -1,0 +1,88 @@
+platform_presets:
+  runway:
+    mode: image_to_video
+    aspect_ratio: 9:16
+    duration_per_stage_seconds: [1.1, 1.1, 1.4, 1.2, 1.8]
+    camera_motion_strength: low_to_medium
+  pika:
+    mode: image_to_video
+    aspect_ratio: 9:16
+    style_weight: cinematic_realism
+    motion_strength: medium
+  sora:
+    mode: text_plus_reference
+    aspect_ratio: 9:16
+    temporal_consistency: high
+
+shared_continuity_directive: >
+  Keep the exact same person, same shirt, same room, same camera angle family,
+  fire in right hand and ice in left hand, realistic anatomy and consistent face.
+
+stage_video_prompts:
+  stage_01_idle_stance:
+    runway: >
+      Vertical cinematic shot of the same man standing in a dark moody room,
+      hands open in front, subtle breathing, slight dolly in, atmospheric haze,
+      ultra realistic skin details, dramatic anticipation, no energy yet.
+    pika: >
+      Same subject and environment, idle stance, slight camera push,
+      cinematic volumetric lighting, realistic hand posture, suspense tone.
+    sora: >
+      Hyper-real cinematic portrait, same subject locked, vertical frame,
+      calm idle pre-action pose with atmospheric haze and dramatic lighting.
+
+  stage_02_energy_ignition:
+    runway: >
+      Fire ignites in right hand with sparks and embers, ice ignites in left hand
+      with blue glow and mist, maintain same identity and framing continuity.
+    pika: >
+      Ignite orange fire particles in right palm and cyan frost particles in left palm,
+      realistic light spill on skin, slight handheld tension.
+    sora: >
+      Same character activates opposing fire and ice energies in both hands,
+      realistic particles, heat haze and cold mist, vertical cinematic shot.
+
+  stage_03_energy_growth:
+    runway: >
+      Both energies expand and intensify, denser particles and volumetric rays,
+      dramatic emotional expression, smooth push-in, preserve continuity.
+    pika: >
+      Growing fire sphere right hand, growing ice sphere left hand,
+      cinematic bloom and realistic reflections, escalating tension.
+    sora: >
+      Progressive energy amplification with detailed sparks and frost shards,
+      same subject and background, ultra realistic lighting dynamics.
+
+  stage_04_energy_collision:
+    runway: >
+      Character brings hands together, fire and ice collide in center,
+      bright impact flash, steam burst, shockwave ring, strong cinematic motion.
+    pika: >
+      High energy collision at chest centerline, radial distortion,
+      steam and light blending, intense dramatic impact.
+    sora: >
+      Fire and ice collide with realistic fluid-like energy behavior,
+      impact flash and shockwave in a vertical hero shot.
+
+  stage_05_final_fusion_heart:
+    runway: >
+      Collision resolves into glowing heart-shaped fusion energy,
+      balanced warm and cool colors, gentle pulses, emotional final hold.
+    pika: >
+      Floating heart-shaped plasma made from blended fire and ice,
+      same character holding it between hands, cinematic finale.
+    sora: >
+      Final emotional hero shot with heart-shaped fusion core,
+      pulsing light, volumetric glow, stable character identity, clean finish.
+
+api_execution_notes:
+  stage_dependency:
+    - stage_01 output last frame becomes stage_02 init image
+    - repeat sequentially through stage_05
+  retry_policy:
+    max_retries_per_stage: 3
+    keep_seed_and_reference_fixed: true
+  quality_control:
+    - reject outputs with face drift
+    - reject outputs with swapped fire and ice hand assignment
+    - reject outputs with inconsistent background
