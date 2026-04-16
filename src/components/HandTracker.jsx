@@ -32,16 +32,28 @@ const BRUSH_PATTERNS = [
   { value: 'dotted', label: 'Dotted' }
 ];
 
+const BRUSH_STYLES = [
+  { value: 'neon', label: 'Neon Glow' },
+  { value: 'ink', label: 'Ink Pen' },
+  { value: 'marker', label: 'Marker' },
+  { value: 'spray', label: 'Spray Paint' },
+  { value: 'calligraphy', label: 'Calligraphy' },
+  { value: 'watercolor', label: 'Watercolor' }
+];
+
 const TEMPLATE_PRESETS = [
   { value: 'star', label: 'Star' },
   { value: 'circle', label: 'Circle' },
   { value: 'heart', label: 'Heart' },
   { value: 'flower', label: 'Flower' },
   { value: 'house', label: 'House' },
-  { value: 'letter-a', label: 'Letter A' }
+  { value: 'letter-a', label: 'Letter A' },
+  { value: '3d-orb', label: '3D Orb' },
+  { value: '3d-cube', label: '3D Cube' },
+  { value: '3d-face', label: '3D Face' }
 ];
 
-export default function HandTracker({ videoRef, canvasRef, enabled }) {
+export default function HandTracker({ videoRef, canvasRef, enabled, compactMode = false }) {
   const { updateHandData, setError } = useInputContext();
   const [drawSettings, setDrawSettings] = useState(DEFAULT_DRAW_SETTINGS);
   const [panelMessage, setPanelMessage] = useState('');
@@ -127,9 +139,9 @@ export default function HandTracker({ videoRef, canvasRef, enabled }) {
   );
 
   return (
-    <section className="panel tracker-panel reveal-b">
+    <section className={`panel tracker-panel reveal-b${compactMode ? ' tracker-essential-mode' : ''}`}>
       <div className="section-header">
-        <h2>Hand Tracking + Draw Studio</h2>
+        <h2>{compactMode ? 'Essential Edit Panel' : 'Hand Tracking + Draw Studio'}</h2>
         <span className={`badge ${isTracking ? 'badge-live' : 'badge-idle'}`}>
           {isTracking ? 'Live' : 'Idle'}
         </span>
@@ -138,12 +150,14 @@ export default function HandTracker({ videoRef, canvasRef, enabled }) {
       {isLoading && <p className="status-text">Loading MediaPipe Hands...</p>}
       {!isLoading && !error && (
         <p className="status-text">
-          Use your selected trigger gesture to draw, erase, and edit strokes in realtime.
+          {compactMode
+            ? 'Quick fullscreen controls for draw, brush, particles, and edit actions.'
+            : 'Use your selected trigger gesture to draw, erase, and edit strokes in realtime.'}
         </p>
       )}
       {error && <p className="status-text status-error">{error}</p>}
 
-      <div className="draw-stats-grid">
+      <div className={`draw-stats-grid${compactMode ? ' draw-stats-grid-compact' : ''}`}>
         <article className="metric-block">
           <h3>Strokes</h3>
           <p>{drawStats.savedStrokeCount}</p>
@@ -156,20 +170,26 @@ export default function HandTracker({ videoRef, canvasRef, enabled }) {
           <h3>Redo Stack</h3>
           <p>{drawStats.redoCount}</p>
         </article>
-        <article className="metric-block">
-          <h3>Tool / Trigger</h3>
-          <p>
-            {drawStats.activeTool.toUpperCase()} / {drawStats.triggerGesture}
-          </p>
-        </article>
-        <article className="metric-block">
-          <h3>Mirror</h3>
-          <p>{drawStats.mirrorMode}</p>
-        </article>
-        <article className="metric-block">
-          <h3>AR Template</h3>
-          <p>{drawStats.templateType}</p>
-        </article>
+        {!compactMode && (
+          <article className="metric-block">
+            <h3>Tool / Trigger</h3>
+            <p>
+              {drawStats.activeTool.toUpperCase()} / {drawStats.triggerGesture}
+            </p>
+          </article>
+        )}
+        {!compactMode && (
+          <article className="metric-block">
+            <h3>Mirror</h3>
+            <p>{drawStats.mirrorMode}</p>
+          </article>
+        )}
+        {!compactMode && (
+          <article className="metric-block">
+            <h3>AR Template</h3>
+            <p>{drawStats.templateType}</p>
+          </article>
+        )}
         <article className="metric-block">
           <h3>Particle FX</h3>
           <p>
@@ -217,9 +237,19 @@ export default function HandTracker({ videoRef, canvasRef, enabled }) {
             </label>
           </div>
 
+          <label className="draw-field draw-toggle draw-toggle-single">
+            <input
+              type="checkbox"
+              checked={drawSettings.handwritingAssist}
+              onChange={updateToggleSetting('handwritingAssist')}
+            />
+            <span>Handwriting Assist (more stable writing)</span>
+          </label>
+
           <p className="draw-help-line">
             Friendly gestures: <strong>Pinch</strong>, <strong>Point</strong>, <strong>V Sign</strong>.
-            Use <strong>AUTO</strong> trigger for easiest drawing.
+            Use <strong>AUTO</strong> trigger + <strong>Handwriting Assist</strong> for easiest writing.
+            <strong>Open Hand</strong> erases instantly when trigger is <strong>AUTO</strong>.
           </p>
         </section>
 
@@ -324,67 +354,83 @@ export default function HandTracker({ videoRef, canvasRef, enabled }) {
                 <option value="normal">Normal</option>
               </select>
             </label>
-          </div>
-        </section>
 
-        <section className="draw-control-group">
-          <h3>Advanced Editing</h3>
-
-          <div className="draw-inline-grid draw-inline-grid-2">
             <label className="draw-field">
-              <span className="draw-label">Brush Pattern</span>
+              <span className="draw-label">Brush Type</span>
               <select
-                value={drawSettings.brushPattern}
-                onChange={(event) => patchSettings({ brushPattern: event.target.value })}
+                value={drawSettings.brushStyle}
+                onChange={(event) => patchSettings({ brushStyle: event.target.value })}
               >
-                {BRUSH_PATTERNS.map((pattern) => (
-                  <option key={pattern.value} value={pattern.value}>
-                    {pattern.label}
+                {BRUSH_STYLES.map((style) => (
+                  <option key={style.value} value={style.value}>
+                    {style.label}
                   </option>
                 ))}
               </select>
             </label>
-
-            <label className="draw-field draw-toggle draw-toggle-single">
-              <input
-                type="checkbox"
-                checked={drawSettings.rainbowBrush}
-                onChange={updateToggleSetting('rainbowBrush')}
-              />
-              <span>Rainbow Brush</span>
-            </label>
-
-            <label className="draw-field draw-toggle draw-toggle-single">
-              <input
-                type="checkbox"
-                checked={drawSettings.mirrorHorizontal}
-                onChange={updateToggleSetting('mirrorHorizontal')}
-              />
-              <span>Mirror Horizontal</span>
-            </label>
-
-            <label className="draw-field draw-toggle draw-toggle-single">
-              <input
-                type="checkbox"
-                checked={drawSettings.mirrorVertical}
-                onChange={updateToggleSetting('mirrorVertical')}
-              />
-              <span>Mirror Vertical</span>
-            </label>
           </div>
-
-          <label className="draw-field">
-            <span className="draw-label">Max Saved Strokes: {drawSettings.maxSavedStrokes}</span>
-            <input
-              type="range"
-              min="8"
-              max="100"
-              step="1"
-              value={drawSettings.maxSavedStrokes}
-              onChange={updateNumberSetting('maxSavedStrokes')}
-            />
-          </label>
         </section>
+
+        {!compactMode && (
+          <section className="draw-control-group">
+            <h3>Advanced Editing</h3>
+
+            <div className="draw-inline-grid draw-inline-grid-2">
+              <label className="draw-field">
+                <span className="draw-label">Brush Pattern</span>
+                <select
+                  value={drawSettings.brushPattern}
+                  onChange={(event) => patchSettings({ brushPattern: event.target.value })}
+                >
+                  {BRUSH_PATTERNS.map((pattern) => (
+                    <option key={pattern.value} value={pattern.value}>
+                      {pattern.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="draw-field draw-toggle draw-toggle-single">
+                <input
+                  type="checkbox"
+                  checked={drawSettings.rainbowBrush}
+                  onChange={updateToggleSetting('rainbowBrush')}
+                />
+                <span>Rainbow Brush</span>
+              </label>
+
+              <label className="draw-field draw-toggle draw-toggle-single">
+                <input
+                  type="checkbox"
+                  checked={drawSettings.mirrorHorizontal}
+                  onChange={updateToggleSetting('mirrorHorizontal')}
+                />
+                <span>Mirror Horizontal</span>
+              </label>
+
+              <label className="draw-field draw-toggle draw-toggle-single">
+                <input
+                  type="checkbox"
+                  checked={drawSettings.mirrorVertical}
+                  onChange={updateToggleSetting('mirrorVertical')}
+                />
+                <span>Mirror Vertical</span>
+              </label>
+            </div>
+
+            <label className="draw-field">
+              <span className="draw-label">Max Saved Strokes: {drawSettings.maxSavedStrokes}</span>
+              <input
+                type="range"
+                min="8"
+                max="100"
+                step="1"
+                value={drawSettings.maxSavedStrokes}
+                onChange={updateNumberSetting('maxSavedStrokes')}
+              />
+            </label>
+          </section>
+        )}
 
         <section className="draw-control-group">
           <h3>Particle Brush FX</h3>
@@ -468,186 +514,190 @@ export default function HandTracker({ videoRef, canvasRef, enabled }) {
           </div>
         </section>
 
-        <section className="draw-control-group">
-          <h3>Overlay Visibility + Lifetime</h3>
+        {!compactMode && (
+          <section className="draw-control-group">
+            <h3>Overlay Visibility + Lifetime</h3>
 
-          <div className="draw-toggle-grid">
-            <label className="draw-field draw-toggle">
-              <input
-                type="checkbox"
-                checked={drawSettings.showAura}
-                onChange={updateToggleSetting('showAura')}
-              />
-              <span>Show Energy Aura</span>
-            </label>
+            <div className="draw-toggle-grid">
+              <label className="draw-field draw-toggle">
+                <input
+                  type="checkbox"
+                  checked={drawSettings.showAura}
+                  onChange={updateToggleSetting('showAura')}
+                />
+                <span>Show Energy Aura</span>
+              </label>
 
-            <label className="draw-field draw-toggle">
-              <input
-                type="checkbox"
-                checked={drawSettings.showLandmarks}
-                onChange={updateToggleSetting('showLandmarks')}
-              />
-              <span>Show Landmarks</span>
-            </label>
+              <label className="draw-field draw-toggle">
+                <input
+                  type="checkbox"
+                  checked={drawSettings.showLandmarks}
+                  onChange={updateToggleSetting('showLandmarks')}
+                />
+                <span>Show Landmarks</span>
+              </label>
 
-            <label className="draw-field draw-toggle">
-              <input
-                type="checkbox"
-                checked={drawSettings.showFusionLink}
-                onChange={updateToggleSetting('showFusionLink')}
-              />
-              <span>Show Fusion Link</span>
-            </label>
+              <label className="draw-field draw-toggle">
+                <input
+                  type="checkbox"
+                  checked={drawSettings.showFusionLink}
+                  onChange={updateToggleSetting('showFusionLink')}
+                />
+                <span>Show Fusion Link</span>
+              </label>
 
-            <label className="draw-field draw-toggle">
-              <input
-                type="checkbox"
-                checked={drawSettings.showCursor}
-                onChange={updateToggleSetting('showCursor')}
-              />
-              <span>Show Draw Cursor</span>
-            </label>
+              <label className="draw-field draw-toggle">
+                <input
+                  type="checkbox"
+                  checked={drawSettings.showCursor}
+                  onChange={updateToggleSetting('showCursor')}
+                />
+                <span>Show Draw Cursor</span>
+              </label>
 
-            <label className="draw-field draw-toggle">
-              <input
-                type="checkbox"
-                checked={drawSettings.autoFade}
-                onChange={updateToggleSetting('autoFade')}
-              />
-              <span>Auto Fade Strokes</span>
-            </label>
-          </div>
-
-          <label className="draw-field">
-            <span className="draw-label">
-              Stroke Lifetime: {(drawSettings.strokeLifetimeMs / 1000).toFixed(1)}s
-            </span>
-            <input
-              type="range"
-              min="2000"
-              max="120000"
-              step="500"
-              value={drawSettings.strokeLifetimeMs}
-              onChange={updateNumberSetting('strokeLifetimeMs')}
-              disabled={!drawSettings.autoFade}
-            />
-          </label>
-        </section>
-
-        <section className="draw-control-group">
-          <h3>AR Practice Template</h3>
-
-          <div className="draw-toggle-grid">
-            <label className="draw-field draw-toggle">
-              <input
-                type="checkbox"
-                checked={drawSettings.templateEnabled}
-                onChange={updateToggleSetting('templateEnabled')}
-              />
-              <span>Show AR Guide Template</span>
-            </label>
+              <label className="draw-field draw-toggle">
+                <input
+                  type="checkbox"
+                  checked={drawSettings.autoFade}
+                  onChange={updateToggleSetting('autoFade')}
+                />
+                <span>Auto Fade Strokes</span>
+              </label>
+            </div>
 
             <label className="draw-field">
-              <span className="draw-label">Template Type</span>
-              <select
-                value={drawSettings.templateType}
-                onChange={(event) => patchSettings({ templateType: event.target.value })}
-              >
-                {TEMPLATE_PRESETS.map((template) => (
-                  <option key={template.value} value={template.value}>
-                    {template.label}
-                  </option>
-                ))}
-              </select>
+              <span className="draw-label">
+                Stroke Lifetime: {(drawSettings.strokeLifetimeMs / 1000).toFixed(1)}s
+              </span>
+              <input
+                type="range"
+                min="2000"
+                max="120000"
+                step="500"
+                value={drawSettings.strokeLifetimeMs}
+                onChange={updateNumberSetting('strokeLifetimeMs')}
+                disabled={!drawSettings.autoFade}
+              />
             </label>
-          </div>
+          </section>
+        )}
 
-          <div className="draw-inline-grid draw-inline-grid-2">
-            <label className="draw-field">
-              <span className="draw-label">Template Color</span>
-              <div className="draw-color-input-row">
-                <input
-                  type="color"
-                  value={drawSettings.templateColor}
-                  onChange={(event) => patchSettings({ templateColor: event.target.value })}
-                />
-                <input
-                  type="text"
-                  value={drawSettings.templateColor}
-                  onChange={(event) => patchSettings({ templateColor: event.target.value })}
-                />
-              </div>
-            </label>
+        {!compactMode && (
+          <section className="draw-control-group">
+            <h3>AR Practice Template</h3>
 
-            <div className="draw-field">
-              <span className="draw-label">Template Presets</span>
-              <div className="template-preset-row">
-                {TEMPLATE_PRESETS.map((template) => (
-                  <button
-                    key={template.value}
-                    type="button"
-                    className="template-preset-btn"
-                    onClick={() => patchSettings({ templateEnabled: true, templateType: template.value })}
-                  >
-                    {template.label}
-                  </button>
-                ))}
+            <div className="draw-toggle-grid">
+              <label className="draw-field draw-toggle">
+                <input
+                  type="checkbox"
+                  checked={drawSettings.templateEnabled}
+                  onChange={updateToggleSetting('templateEnabled')}
+                />
+                <span>Show AR Guide Template</span>
+              </label>
+
+              <label className="draw-field">
+                <span className="draw-label">Template Type</span>
+                <select
+                  value={drawSettings.templateType}
+                  onChange={(event) => patchSettings({ templateType: event.target.value })}
+                >
+                  {TEMPLATE_PRESETS.map((template) => (
+                    <option key={template.value} value={template.value}>
+                      {template.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="draw-inline-grid draw-inline-grid-2">
+              <label className="draw-field">
+                <span className="draw-label">Template Color</span>
+                <div className="draw-color-input-row">
+                  <input
+                    type="color"
+                    value={drawSettings.templateColor}
+                    onChange={(event) => patchSettings({ templateColor: event.target.value })}
+                  />
+                  <input
+                    type="text"
+                    value={drawSettings.templateColor}
+                    onChange={(event) => patchSettings({ templateColor: event.target.value })}
+                  />
+                </div>
+              </label>
+
+              <div className="draw-field">
+                <span className="draw-label">Template Presets</span>
+                <div className="template-preset-row">
+                  {TEMPLATE_PRESETS.map((template) => (
+                    <button
+                      key={template.value}
+                      type="button"
+                      className="template-preset-btn"
+                      onClick={() => patchSettings({ templateEnabled: true, templateType: template.value })}
+                    >
+                      {template.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
 
-          <label className="draw-field">
-            <span className="draw-label">
-              Template Opacity: {(drawSettings.templateOpacity * 100).toFixed(0)}%
-            </span>
-            <input
-              type="range"
-              min="0.12"
-              max="0.95"
-              step="0.01"
-              value={drawSettings.templateOpacity}
-              onChange={updateNumberSetting('templateOpacity')}
-            />
-          </label>
-
-          <label className="draw-field">
-            <span className="draw-label">Template Scale: {drawSettings.templateScale.toFixed(2)}x</span>
-            <input
-              type="range"
-              min="0.5"
-              max="1.8"
-              step="0.01"
-              value={drawSettings.templateScale}
-              onChange={updateNumberSetting('templateScale')}
-            />
-          </label>
-
-          <div className="draw-inline-grid draw-inline-grid-2">
             <label className="draw-field">
-              <span className="draw-label">Template X Offset: {drawSettings.templateOffsetX.toFixed(2)}</span>
+              <span className="draw-label">
+                Template Opacity: {(drawSettings.templateOpacity * 100).toFixed(0)}%
+              </span>
               <input
                 type="range"
-                min="-1"
-                max="1"
+                min="0.12"
+                max="0.95"
                 step="0.01"
-                value={drawSettings.templateOffsetX}
-                onChange={updateNumberSetting('templateOffsetX')}
+                value={drawSettings.templateOpacity}
+                onChange={updateNumberSetting('templateOpacity')}
               />
             </label>
 
             <label className="draw-field">
-              <span className="draw-label">Template Y Offset: {drawSettings.templateOffsetY.toFixed(2)}</span>
+              <span className="draw-label">Template Scale: {drawSettings.templateScale.toFixed(2)}x</span>
               <input
                 type="range"
-                min="-1"
-                max="1"
+                min="0.5"
+                max="1.8"
                 step="0.01"
-                value={drawSettings.templateOffsetY}
-                onChange={updateNumberSetting('templateOffsetY')}
+                value={drawSettings.templateScale}
+                onChange={updateNumberSetting('templateScale')}
               />
             </label>
-          </div>
-        </section>
+
+            <div className="draw-inline-grid draw-inline-grid-2">
+              <label className="draw-field">
+                <span className="draw-label">Template X Offset: {drawSettings.templateOffsetX.toFixed(2)}</span>
+                <input
+                  type="range"
+                  min="-1"
+                  max="1"
+                  step="0.01"
+                  value={drawSettings.templateOffsetX}
+                  onChange={updateNumberSetting('templateOffsetX')}
+                />
+              </label>
+
+              <label className="draw-field">
+                <span className="draw-label">Template Y Offset: {drawSettings.templateOffsetY.toFixed(2)}</span>
+                <input
+                  type="range"
+                  min="-1"
+                  max="1"
+                  step="0.01"
+                  value={drawSettings.templateOffsetY}
+                  onChange={updateNumberSetting('templateOffsetY')}
+                />
+              </label>
+            </div>
+          </section>
+        )}
 
         <section className="draw-control-group">
           <h3>Edit Drawing</h3>

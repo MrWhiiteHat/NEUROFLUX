@@ -169,8 +169,10 @@ const DEFAULT_DRAW_SETTINGS = {
   drawEnabled: true,
   drawMode: 'draw',
   triggerGesture: 'AUTO',
+  handwritingAssist: true,
   brushColor: '#74d6ff',
   brushPattern: 'solid',
+  brushStyle: 'neon',
   brushSize: 5,
   brushOpacity: 0.92,
   glowStrength: 14,
@@ -185,8 +187,8 @@ const DEFAULT_DRAW_SETTINGS = {
   rainbowBrush: false,
   mirrorHorizontal: false,
   mirrorVertical: false,
-  autoFade: true,
-  strokeLifetimeMs: 18000,
+  autoFade: false,
+  strokeLifetimeMs: 30000,
   maxSavedStrokes: 36,
   templateEnabled: false,
   templateType: 'star',
@@ -195,9 +197,9 @@ const DEFAULT_DRAW_SETTINGS = {
   templateOffsetX: 0,
   templateOffsetY: 0,
   templateColor: '#ffffff',
-  showAura: true,
+  showAura: false,
   showLandmarks: true,
-  showFusionLink: true,
+  showFusionLink: false,
   showCursor: true
 };
 
@@ -220,26 +222,59 @@ const DEFAULT_DRAW_STATS = {
 };
 
 const BRUSH_PATTERNS = ['solid', 'dashed', 'dotted'];
-const PRACTICE_TEMPLATES = ['star', 'circle', 'heart', 'flower', 'house', 'letter-a'];
+const BRUSH_STYLES = ['neon', 'ink', 'marker', 'spray', 'calligraphy', 'watercolor'];
+const PRACTICE_TEMPLATES = [
+  'star',
+  'circle',
+  'heart',
+  'flower',
+  'house',
+  'letter-a',
+  '3d-orb',
+  '3d-cube',
+  '3d-face'
+];
 const TRIGGER_GESTURES = ['AUTO', 'PINCH', 'POINT', 'V_SIGN', 'OPEN_HAND', 'FIST'];
 const PARTICLE_MODES = ['none', 'spark', 'magic', 'ember', 'smoke'];
 
 const HANDS_DEFAULT_OPTIONS = {
   modelComplexity: 1,
   maxNumHands: 2,
-  minDetectionConfidence: 0.48,
-  minTrackingConfidence: 0.42
+  minDetectionConfidence: 0.38,
+  minTrackingConfidence: 0.34
 };
 
 const HANDS_RECOVERY_OPTIONS = {
   modelComplexity: 0,
   maxNumHands: 2,
-  minDetectionConfidence: 0.3,
-  minTrackingConfidence: 0.3
+  minDetectionConfidence: 0.24,
+  minTrackingConfidence: 0.22
 };
 
-const NO_HANDS_FRAMES_FOR_RECOVERY = 24;
-const OPTIONS_SWAP_COOLDOWN_MS = 900;
+const NO_HANDS_FRAMES_FOR_RECOVERY = 12;
+const OPTIONS_SWAP_COOLDOWN_MS = 520;
+const DRAW_TRIGGER_GRACE_MS = {
+  standard: 180,
+  handwriting: 520
+};
+const DRAW_START_CONFIRM_FRAMES = {
+  standard: 1,
+  handwriting: 2
+};
+const FAST_MOTION_SPEED_THRESHOLD = {
+  standard: 0.6,
+  handwriting: 0.38
+};
+const ACTIVE_STROKE_IDLE_TIMEOUT_MS = {
+  standard: 1200,
+  handwriting: 2400
+};
+const UNKNOWN_GESTURE_HOLD_MS = 620;
+const POINTER_MODEL_MEMORY_MS = 760;
+const HANDS_SEND_INTERVAL_MS = {
+  standard: 10,
+  handwriting: 10
+};
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -464,6 +499,203 @@ function drawFlowerTemplate(context, cx, cy, size) {
   context.stroke();
 }
 
+function draw3DOrbTemplate(context, cx, cy, size, color, opacity, nowMs) {
+  const rx = size * 0.72;
+  const ry = size * 0.56;
+  const tilt = Math.sin(nowMs * 0.0028) * 0.12;
+
+  context.setLineDash([]);
+
+  const bodyGradient = context.createRadialGradient(
+    cx - rx * 0.26,
+    cy - ry * 0.32,
+    size * 0.08,
+    cx,
+    cy,
+    rx * 1.25
+  );
+  bodyGradient.addColorStop(0, rgba([245, 250, 255], opacity * 0.56));
+  bodyGradient.addColorStop(0.24, rgba(color, opacity * 0.48));
+  bodyGradient.addColorStop(1, rgba([7, 20, 38], opacity * 0.46));
+
+  context.fillStyle = bodyGradient;
+  context.beginPath();
+  context.ellipse(cx, cy, rx, ry, tilt, 0, Math.PI * 2);
+  context.fill();
+
+  context.strokeStyle = rgba([228, 238, 255], opacity * 0.84);
+  context.lineWidth = Math.max(1.5, size * 0.014);
+  context.beginPath();
+  context.ellipse(cx, cy, rx, ry, tilt, 0, Math.PI * 2);
+  context.stroke();
+
+  context.strokeStyle = rgba([186, 206, 255], opacity * 0.42);
+  context.lineWidth = Math.max(1.1, size * 0.01);
+  for (let step = -2; step <= 2; step += 1) {
+    const offset = (step / 5) * ry * 1.04;
+    const bandScale = Math.sqrt(Math.max(0.03, 1 - (offset * offset) / (ry * ry)));
+
+    context.beginPath();
+    context.ellipse(cx, cy + offset * 0.18, rx * bandScale, ry * 0.22 * bandScale, tilt, 0, Math.PI * 2);
+    context.stroke();
+  }
+
+  const specular = context.createRadialGradient(
+    cx - rx * 0.38,
+    cy - ry * 0.38,
+    size * 0.01,
+    cx - rx * 0.38,
+    cy - ry * 0.38,
+    size * 0.26
+  );
+  specular.addColorStop(0, rgba([255, 255, 255], opacity * 0.9));
+  specular.addColorStop(1, rgba([255, 255, 255], 0));
+
+  context.fillStyle = specular;
+  context.beginPath();
+  context.ellipse(cx - rx * 0.34, cy - ry * 0.34, size * 0.12, size * 0.09, tilt, 0, Math.PI * 2);
+  context.fill();
+}
+
+function draw3DCubeTemplate(context, cx, cy, size, color, opacity, nowMs) {
+  const half = size * 0.44;
+  const depth = size * (0.2 + Math.sin(nowMs * 0.002) * 0.03);
+  const lift = size * 0.2;
+
+  const front = [
+    { x: cx - half, y: cy - half + lift },
+    { x: cx + half, y: cy - half + lift },
+    { x: cx + half, y: cy + half + lift },
+    { x: cx - half, y: cy + half + lift }
+  ];
+
+  const back = front.map((point) => ({
+    x: point.x + depth,
+    y: point.y - depth * 0.7
+  }));
+
+  const fillFace = (points, fillStyle) => {
+    context.fillStyle = fillStyle;
+    context.beginPath();
+    context.moveTo(points[0].x, points[0].y);
+    for (let index = 1; index < points.length; index += 1) {
+      context.lineTo(points[index].x, points[index].y);
+    }
+    context.closePath();
+    context.fill();
+  };
+
+  context.setLineDash([]);
+
+  fillFace([
+    back[0],
+    back[1],
+    front[1],
+    front[0]
+  ], rgba([212, 226, 255], opacity * 0.2));
+
+  fillFace([
+    back[1],
+    back[2],
+    front[2],
+    front[1]
+  ], rgba([96, 132, 196], opacity * 0.34));
+
+  fillFace(front, rgba(color, opacity * 0.28));
+
+  context.strokeStyle = rgba([236, 244, 255], opacity * 0.92);
+  context.lineWidth = Math.max(1.4, size * 0.012);
+
+  const drawLoop = (points) => {
+    context.beginPath();
+    context.moveTo(points[0].x, points[0].y);
+    for (let index = 1; index < points.length; index += 1) {
+      context.lineTo(points[index].x, points[index].y);
+    }
+    context.closePath();
+    context.stroke();
+  };
+
+  drawLoop(front);
+  drawLoop(back);
+
+  for (let index = 0; index < front.length; index += 1) {
+    context.beginPath();
+    context.moveTo(front[index].x, front[index].y);
+    context.lineTo(back[index].x, back[index].y);
+    context.stroke();
+  }
+}
+
+function draw3DFaceTemplate(context, cx, cy, size, color, opacity, nowMs) {
+  const headW = size * 0.5;
+  const headH = size * 0.68;
+  const tilt = Math.sin(nowMs * 0.0024) * 0.08;
+
+  context.setLineDash([]);
+
+  const skinGradient = context.createRadialGradient(
+    cx - headW * 0.22,
+    cy - headH * 0.32,
+    size * 0.08,
+    cx,
+    cy,
+    size * 0.9
+  );
+  skinGradient.addColorStop(0, rgba([255, 243, 232], opacity * 0.5));
+  skinGradient.addColorStop(0.45, rgba(color, opacity * 0.32));
+  skinGradient.addColorStop(1, rgba([64, 76, 108], opacity * 0.36));
+
+  context.fillStyle = skinGradient;
+  context.beginPath();
+  context.ellipse(cx, cy, headW, headH, tilt, 0, Math.PI * 2);
+  context.fill();
+
+  context.strokeStyle = rgba([236, 244, 255], opacity * 0.85);
+  context.lineWidth = Math.max(1.3, size * 0.012);
+  context.beginPath();
+  context.ellipse(cx, cy, headW, headH, tilt, 0, Math.PI * 2);
+  context.stroke();
+
+  const eyeY = cy - headH * 0.15;
+  const eyeOffset = headW * 0.34;
+  const eyeW = size * 0.1;
+  const eyeH = size * 0.04;
+
+  context.strokeStyle = rgba([246, 251, 255], opacity * 0.86);
+  context.lineWidth = Math.max(1.1, size * 0.008);
+  context.beginPath();
+  context.ellipse(cx - eyeOffset, eyeY, eyeW, eyeH, tilt, 0, Math.PI * 2);
+  context.stroke();
+  context.beginPath();
+  context.ellipse(cx + eyeOffset, eyeY, eyeW, eyeH, tilt, 0, Math.PI * 2);
+  context.stroke();
+
+  context.fillStyle = rgba([16, 25, 43], opacity * 0.75);
+  context.beginPath();
+  context.arc(cx - eyeOffset, eyeY, size * 0.018, 0, Math.PI * 2);
+  context.arc(cx + eyeOffset, eyeY, size * 0.018, 0, Math.PI * 2);
+  context.fill();
+
+  context.strokeStyle = rgba([226, 236, 255], opacity * 0.76);
+  context.beginPath();
+  context.moveTo(cx, cy - headH * 0.06);
+  context.lineTo(cx - size * 0.03, cy + headH * 0.14);
+  context.lineTo(cx + size * 0.03, cy + headH * 0.16);
+  context.stroke();
+
+  context.beginPath();
+  context.arc(cx, cy + headH * 0.3, size * 0.16, 0.16 * Math.PI, 0.84 * Math.PI);
+  context.stroke();
+
+  context.strokeStyle = rgba([196, 212, 255], opacity * 0.55);
+  context.lineWidth = Math.max(1, size * 0.006);
+  context.beginPath();
+  context.moveTo(cx - headW * 0.56, cy + headH * 0.48);
+  context.quadraticCurveTo(cx, cy + headH * 0.84, cx + headW * 0.56, cy + headH * 0.48);
+  context.stroke();
+}
+
 function drawPracticeTemplate(context, canvas, settings, nowMs) {
   if (!settings.templateEnabled) {
     return;
@@ -482,7 +714,13 @@ function drawPracticeTemplate(context, canvas, settings, nowMs) {
   context.shadowColor = rgba(color, settings.templateOpacity * 0.75);
   context.shadowBlur = 12;
   context.lineWidth = Math.max(2, baseSize * 0.016);
-  context.setLineDash([10, 8]);
+
+  const is3DTemplate =
+    settings.templateType === '3d-orb' ||
+    settings.templateType === '3d-cube' ||
+    settings.templateType === '3d-face';
+
+  context.setLineDash(is3DTemplate ? [] : [10, 8]);
 
   if (settings.templateType === 'circle') {
     context.beginPath();
@@ -502,6 +740,12 @@ function drawPracticeTemplate(context, canvas, settings, nowMs) {
   } else if (settings.templateType === 'letter-a') {
     drawLetterAPath(context, centerX, centerY, baseSize);
     context.stroke();
+  } else if (settings.templateType === '3d-orb') {
+    draw3DOrbTemplate(context, centerX, centerY, baseSize, color, settings.templateOpacity, nowMs);
+  } else if (settings.templateType === '3d-cube') {
+    draw3DCubeTemplate(context, centerX, centerY, baseSize, color, settings.templateOpacity, nowMs);
+  } else if (settings.templateType === '3d-face') {
+    draw3DFaceTemplate(context, centerX, centerY, baseSize, color, settings.templateOpacity, nowMs);
   } else {
     drawStarPath(context, centerX, centerY, baseSize * 0.78, baseSize * 0.34, 5);
     context.fill();
@@ -559,7 +803,8 @@ function resolveParticleProfile(mode, baseColor, nowMs) {
 function resolveParticleIntervalMs(settings) {
   // Higher density should emit more frequently, but still stay bounded for performance.
   const density = clamp(settings.particleDensity, 1, 10);
-  return Math.round(clamp(70 - density * 5, 18, 72));
+  const handwritingPadding = settings.handwritingAssist ? 18 : 0;
+  return Math.round(clamp(70 - density * 5 + handwritingPadding, 18, 96));
 }
 
 function spawnParticles(drawState, settings, point, nowMs, canvasWidth, canvasHeight) {
@@ -572,7 +817,10 @@ function spawnParticles(drawState, settings, point, nowMs, canvasWidth, canvasHe
     .filter(Boolean);
 
   const baseColor = settings.rainbowBrush ? hueToRgb((nowMs * 0.07) % 360) : parseHexColor(settings.brushColor);
-  const emitCount = Math.max(1, Math.round(settings.particleDensity));
+  const baseEmitCount = Math.max(1, Math.round(settings.particleDensity));
+  const emitCount = settings.handwritingAssist
+    ? Math.max(1, Math.round(baseEmitCount * 0.72))
+    : baseEmitCount;
 
   origins.forEach((originPoint) => {
     for (let index = 0; index < emitCount; index += 1) {
@@ -596,8 +844,10 @@ function spawnParticles(drawState, settings, point, nowMs, canvasWidth, canvasHe
     }
   });
 
-  if (drawState.particles.length > 2400) {
-    drawState.particles.splice(0, drawState.particles.length - 2400);
+  const maxParticles = settings.handwritingAssist ? 1200 : 2400;
+
+  if (drawState.particles.length > maxParticles) {
+    drawState.particles.splice(0, drawState.particles.length - maxParticles);
   }
 }
 
@@ -667,8 +917,10 @@ function normalizeDrawSettings(input) {
     drawEnabled: Boolean(merged.drawEnabled),
     drawMode: merged.drawMode === 'erase' ? 'erase' : 'draw',
     triggerGesture: TRIGGER_GESTURES.includes(merged.triggerGesture) ? merged.triggerGesture : 'AUTO',
+    handwritingAssist: Boolean(merged.handwritingAssist),
     brushColor: typeof merged.brushColor === 'string' ? merged.brushColor : '#74d6ff',
     brushPattern: BRUSH_PATTERNS.includes(merged.brushPattern) ? merged.brushPattern : 'solid',
+    brushStyle: BRUSH_STYLES.includes(merged.brushStyle) ? merged.brushStyle : 'neon',
     brushSize: clamp(Number(merged.brushSize) || 5, 1, 30),
     brushOpacity: clamp(Number(merged.brushOpacity) || 0.92, 0.05, 1),
     glowStrength: clamp(Number(merged.glowStrength) || 14, 0, 36),
@@ -887,6 +1139,154 @@ function normalizedDistance(a, b) {
   return Math.hypot((a.x ?? 0) - (b.x ?? 0), (a.y ?? 0) - (b.y ?? 0), (a.z ?? 0) - (b.z ?? 0));
 }
 
+function getIndexTip(landmarks) {
+  return landmarks?.[8] ?? null;
+}
+
+function getAdaptivePointerPrediction(drawState, nowMs) {
+  const pointer = drawState.adaptivePointerNorm;
+
+  if (!pointer) {
+    return null;
+  }
+
+  const ageMs = nowMs - (drawState.adaptivePointerAt ?? 0);
+
+  if (ageMs > POINTER_MODEL_MEMORY_MS) {
+    return null;
+  }
+
+  const velocity = drawState.adaptivePointerVelocityNorm ?? { x: 0, y: 0, z: 0 };
+
+  return {
+    x: clamp(pointer.x + velocity.x * ageMs, 0, 1),
+    y: clamp(pointer.y + velocity.y * ageMs, 0, 1),
+    z: pointer.z + velocity.z * ageMs
+  };
+}
+
+function buildPointerCandidates(multiHandLandmarks, predictedTip) {
+  const hands = Array.isArray(multiHandLandmarks) ? multiHandLandmarks.filter(Boolean) : [];
+  const candidates = [];
+
+  hands.forEach((hand) => {
+    const tip = getIndexTip(hand);
+
+    if (!tip) {
+      return;
+    }
+
+    const handScale = estimateHandScale(hand);
+    const indexRatio = fingerSegmentRatio(hand, { tip: 8, pip: 6, mcp: 5 });
+    const extensionScore = clamp((indexRatio - 0.94) / 0.34, 0, 1);
+    const scaleScore = clamp((handScale - 0.05) / 0.16, 0, 1);
+    const proximityScore = predictedTip
+      ? clamp(1 - normalizedDistance(tip, predictedTip) / Math.max(0.09, handScale * 2.8), 0, 1)
+      : 0.56;
+
+    const score = proximityScore * 0.56 + extensionScore * 0.28 + scaleScore * 0.16;
+
+    candidates.push({
+      hand,
+      tip,
+      handScale,
+      score
+    });
+  });
+
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates;
+}
+
+function choosePrimaryHandAdaptive(multiHandLandmarks, drawState, nowMs) {
+  const predictedTip = getAdaptivePointerPrediction(drawState, nowMs);
+  const candidates = buildPointerCandidates(multiHandLandmarks, predictedTip);
+  return candidates[0]?.hand ?? null;
+}
+
+function updateAdaptivePointer(drawState, observedTip, nowMs) {
+  if (!observedTip) {
+    return null;
+  }
+
+  const previousPoint = drawState.adaptivePointerNorm;
+  const previousAt = drawState.adaptivePointerAt ?? 0;
+
+  if (!previousPoint || !previousAt) {
+    drawState.adaptivePointerNorm = {
+      x: observedTip.x,
+      y: observedTip.y,
+      z: observedTip.z ?? 0
+    };
+    drawState.adaptivePointerVelocityNorm = { x: 0, y: 0, z: 0 };
+    drawState.adaptivePointerAt = nowMs;
+    return drawState.adaptivePointerNorm;
+  }
+
+  const deltaMs = Math.max(1, nowMs - previousAt);
+  const instantVelocity = {
+    x: (observedTip.x - previousPoint.x) / deltaMs,
+    y: (observedTip.y - previousPoint.y) / deltaMs,
+    z: ((observedTip.z ?? 0) - (previousPoint.z ?? 0)) / deltaMs
+  };
+  const previousVelocity = drawState.adaptivePointerVelocityNorm ?? { x: 0, y: 0, z: 0 };
+  const blendedVelocity = {
+    x: previousVelocity.x * 0.62 + instantVelocity.x * 0.38,
+    y: previousVelocity.y * 0.62 + instantVelocity.y * 0.38,
+    z: previousVelocity.z * 0.62 + instantVelocity.z * 0.38
+  };
+  const speedNormPerMs = Math.hypot(blendedVelocity.x, blendedVelocity.y);
+  const alpha = clamp(0.34 + speedNormPerMs * 9.5, 0.34, 0.82);
+  const smoothedPoint = {
+    x: clamp(previousPoint.x + (observedTip.x - previousPoint.x) * alpha, 0, 1),
+    y: clamp(previousPoint.y + (observedTip.y - previousPoint.y) * alpha, 0, 1),
+    z: (previousPoint.z ?? 0) + ((observedTip.z ?? 0) - (previousPoint.z ?? 0)) * alpha
+  };
+
+  drawState.adaptivePointerNorm = smoothedPoint;
+  drawState.adaptivePointerVelocityNorm = blendedVelocity;
+  drawState.adaptivePointerAt = nowMs;
+  return smoothedPoint;
+}
+
+function resolveAdaptiveDrawTip(multiHandLandmarks, drawState, nowMs) {
+  const predictedTip = getAdaptivePointerPrediction(drawState, nowMs);
+  const candidates = buildPointerCandidates(multiHandLandmarks, predictedTip);
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const [best, second] = candidates;
+  let observedTip = best.tip;
+
+  if (second && second.score >= best.score * 0.72) {
+    const combined = best.score + second.score;
+
+    observedTip = {
+      x: (best.tip.x * best.score + second.tip.x * second.score) / combined,
+      y: (best.tip.y * best.score + second.tip.y * second.score) / combined,
+      z: ((best.tip.z ?? 0) * best.score + (second.tip.z ?? 0) * second.score) / combined
+    };
+  }
+
+  return updateAdaptivePointer(drawState, observedTip, nowMs);
+}
+
+function releaseAdaptivePointerIfStale(drawState, nowMs) {
+  if (!drawState.adaptivePointerNorm) {
+    return;
+  }
+
+  if (nowMs - (drawState.adaptivePointerAt ?? 0) <= POINTER_MODEL_MEMORY_MS) {
+    return;
+  }
+
+  drawState.adaptivePointerNorm = null;
+  drawState.adaptivePointerVelocityNorm = { x: 0, y: 0, z: 0 };
+  drawState.adaptivePointerAt = 0;
+}
+
 function estimateHandScale(landmarks) {
   const wrist = landmarks?.[0];
   const middleMcp = landmarks?.[9];
@@ -920,9 +1320,178 @@ function isPinchLikeGesture(landmarks) {
   return tipDistance <= handSize * 0.62;
 }
 
+function normalizedPlanarDistance(a, b) {
+  if (!a || !b) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return Math.hypot((a.x ?? 0) - (b.x ?? 0), (a.y ?? 0) - (b.y ?? 0));
+}
+
+function fingerSegmentRatio(landmarks, { tip, pip, mcp }) {
+  const tipPoint = landmarks?.[tip];
+  const pipPoint = landmarks?.[pip];
+  const mcpPoint = landmarks?.[mcp];
+
+  if (!tipPoint || !pipPoint || !mcpPoint) {
+    return 0;
+  }
+
+  const tipToMcp = normalizedDistance(tipPoint, mcpPoint);
+  const pipToMcp = normalizedDistance(pipPoint, mcpPoint);
+
+  if (!Number.isFinite(tipToMcp) || !Number.isFinite(pipToMcp) || pipToMcp <= 0.0001) {
+    return 0;
+  }
+
+  return tipToMcp / pipToMcp;
+}
+
+function isPointPoseStableForDraw(landmarks, handwritingAssist) {
+  if (!Array.isArray(landmarks) || landmarks.length < 21) {
+    return false;
+  }
+
+  const wrist = landmarks[0];
+  const indexTip = landmarks[8];
+  const indexPip = landmarks[6];
+  const middleTip = landmarks[12];
+
+  if (!wrist || !indexTip || !indexPip || !middleTip) {
+    return false;
+  }
+
+  const scale = estimateHandScale(landmarks);
+  const indexRatio = fingerSegmentRatio(landmarks, { tip: 8, pip: 6, mcp: 5 });
+  const middleRatio = fingerSegmentRatio(landmarks, { tip: 12, pip: 10, mcp: 9 });
+  const ringRatio = fingerSegmentRatio(landmarks, { tip: 16, pip: 14, mcp: 13 });
+  const pinkyRatio = fingerSegmentRatio(landmarks, { tip: 20, pip: 18, mcp: 17 });
+
+  const indexReachRatio =
+    normalizedDistance(indexTip, wrist) / Math.max(normalizedDistance(indexPip, wrist), 0.0001);
+  const fingerSpread = normalizedPlanarDistance(indexTip, middleTip);
+  const depthLeadAllowed = indexTip.z <= indexPip.z + scale * 0.34;
+
+  let score = 0;
+
+  if (indexRatio >= 1.12) {
+    score += 1;
+  }
+
+  if (indexReachRatio >= 1.03) {
+    score += 1;
+  }
+
+  if (middleRatio <= 1.03) {
+    score += 1;
+  }
+
+  if (ringRatio <= 1.03) {
+    score += 1;
+  }
+
+  if (pinkyRatio <= 1.03) {
+    score += 1;
+  }
+
+  if (fingerSpread >= scale * 0.16) {
+    score += 1;
+  }
+
+  if (depthLeadAllowed) {
+    score += 1;
+  }
+
+  const requiredScore = handwritingAssist ? 4 : 4;
+  return score >= requiredScore;
+}
+
+function isVSignPoseStableForDraw(landmarks) {
+  if (!Array.isArray(landmarks) || landmarks.length < 21) {
+    return false;
+  }
+
+  const indexTip = landmarks[8];
+  const middleTip = landmarks[12];
+
+  if (!indexTip || !middleTip) {
+    return false;
+  }
+
+  const scale = estimateHandScale(landmarks);
+  const indexRatio = fingerSegmentRatio(landmarks, { tip: 8, pip: 6, mcp: 5 });
+  const middleRatio = fingerSegmentRatio(landmarks, { tip: 12, pip: 10, mcp: 9 });
+  const ringRatio = fingerSegmentRatio(landmarks, { tip: 16, pip: 14, mcp: 13 });
+  const pinkyRatio = fingerSegmentRatio(landmarks, { tip: 20, pip: 18, mcp: 17 });
+  const spread = normalizedPlanarDistance(indexTip, middleTip);
+
+  return (
+    indexRatio >= 1.13 &&
+    middleRatio >= 1.13 &&
+    ringRatio <= 1 &&
+    pinkyRatio <= 1 &&
+    spread >= scale * 0.23
+  );
+}
+
+function isOpenHandPoseStableForErase(landmarks) {
+  if (!Array.isArray(landmarks) || landmarks.length < 21) {
+    return false;
+  }
+
+  const indexTip = landmarks[8];
+  const pinkyTip = landmarks[20];
+
+  if (!indexTip || !pinkyTip) {
+    return false;
+  }
+
+  const scale = estimateHandScale(landmarks);
+  const thumbRatio = fingerSegmentRatio(landmarks, { tip: 4, pip: 3, mcp: 2 });
+  const indexRatio = fingerSegmentRatio(landmarks, { tip: 8, pip: 6, mcp: 5 });
+  const middleRatio = fingerSegmentRatio(landmarks, { tip: 12, pip: 10, mcp: 9 });
+  const ringRatio = fingerSegmentRatio(landmarks, { tip: 16, pip: 14, mcp: 13 });
+  const pinkyRatio = fingerSegmentRatio(landmarks, { tip: 20, pip: 18, mcp: 17 });
+  const spread = normalizedPlanarDistance(indexTip, pinkyTip);
+
+  const extendedNonThumbCount = [indexRatio, middleRatio, ringRatio, pinkyRatio].filter(
+    (ratio) => ratio >= 1.06
+  ).length;
+
+  return extendedNonThumbCount >= 2 && thumbRatio >= 0.92 && spread >= scale * 0.32;
+}
+
 function isGestureTriggered({ settings, gesture, primaryHand }) {
+  const pointPoseReady = isPointPoseStableForDraw(primaryHand, settings.handwritingAssist);
+  const vSignPoseReady = isVSignPoseStableForDraw(primaryHand);
+  const openHandPoseReady = isOpenHandPoseStableForErase(primaryHand);
+
+  // Open hand should reliably trigger erase flows.
+  if (
+    (settings.drawMode === 'erase' || settings.triggerGesture === 'OPEN_HAND') &&
+    (gesture === 'OPEN_HAND' || openHandPoseReady)
+  ) {
+    return true;
+  }
+
   if (settings.triggerGesture === 'AUTO') {
-    return gesture === 'PINCH' || gesture === 'POINT' || gesture === 'V_SIGN';
+    if (settings.drawMode === 'erase') {
+      return gesture === 'OPEN_HAND' || openHandPoseReady;
+    }
+
+    return gesture === 'PINCH' || pointPoseReady || (gesture === 'V_SIGN' && vSignPoseReady);
+  }
+
+  if (settings.triggerGesture === 'POINT') {
+    return pointPoseReady;
+  }
+
+  if (settings.triggerGesture === 'V_SIGN') {
+    return vSignPoseReady;
+  }
+
+  if (settings.triggerGesture === 'OPEN_HAND') {
+    return gesture === 'OPEN_HAND' || openHandPoseReady;
   }
 
   if (gesture === settings.triggerGesture) {
@@ -948,6 +1517,7 @@ function createStroke(settings, point, nowMs) {
     lastUpdatedAt: nowMs,
     color,
     pattern: settings.brushPattern,
+    style: settings.brushStyle,
     width: settings.brushSize,
     opacity: settings.brushOpacity,
     glow: settings.glowStrength,
@@ -974,6 +1544,27 @@ function finalizeActiveStroke(drawState, maxSavedStrokes) {
   return true;
 }
 
+function resetDrawStartLock(drawState) {
+  drawState.startTriggerFrames = 0;
+  drawState.startTriggerGesture = 'NO_HANDS';
+}
+
+function updateDrawStartLock(drawState, gestureKey, isTriggered) {
+  if (!isTriggered) {
+    resetDrawStartLock(drawState);
+    return 0;
+  }
+
+  if (drawState.startTriggerGesture === gestureKey) {
+    drawState.startTriggerFrames += 1;
+    return drawState.startTriggerFrames;
+  }
+
+  drawState.startTriggerGesture = gestureKey;
+  drawState.startTriggerFrames = 1;
+  return drawState.startTriggerFrames;
+}
+
 function appendStrokePoint(drawState, point, settings, nowMs) {
   if (!drawState.activeStroke) {
     drawState.activeStroke = createStroke(settings, point, nowMs);
@@ -982,24 +1573,56 @@ function appendStrokePoint(drawState, point, settings, nowMs) {
   }
 
   const previousPoint = drawState.activeStroke.points[drawState.activeStroke.points.length - 1];
-  const smoothingFactor = clamp(1 - settings.smoothness * 0.85, 0.15, 1);
+  const elapsedMs = Math.max(1, nowMs - drawState.activeStroke.lastUpdatedAt);
+  const rawDistance = Math.hypot(point.x - previousPoint.x, point.y - previousPoint.y);
+  const speedPxPerMs = rawDistance / elapsedMs;
+  const speedThreshold = settings.handwritingAssist
+    ? FAST_MOTION_SPEED_THRESHOLD.handwriting
+    : FAST_MOTION_SPEED_THRESHOLD.standard;
+  const fastMotionFactor = clamp((speedPxPerMs - speedThreshold) / 2.4, 0, 1);
+  const effectiveSmoothness = settings.handwritingAssist
+    ? clamp(settings.smoothness * 0.72, 0, 0.95)
+    : settings.smoothness;
+  const smoothingFactorBase = clamp(1 - effectiveSmoothness * 0.85, 0.15, 1);
+  const smoothingFactor = clamp(smoothingFactorBase + fastMotionFactor * 0.42, 0.15, 1);
   const nextPoint = {
     x: previousPoint.x + (point.x - previousPoint.x) * smoothingFactor,
     y: previousPoint.y + (point.y - previousPoint.y) * smoothingFactor
   };
 
   const distance = Math.hypot(nextPoint.x - previousPoint.x, nextPoint.y - previousPoint.y);
-  const minDistancePx = clamp(settings.brushSize * 0.42, 1.2, 6);
+  const baseMinDistancePx = clamp(settings.brushSize * 0.42, 1.2, 6);
+  const minDistancePxBase = settings.handwritingAssist
+    ? clamp(baseMinDistancePx * 0.45, 0.45, 4.5)
+    : baseMinDistancePx;
+  const minDistancePx = clamp(minDistancePxBase * (1 - fastMotionFactor * 0.7), 0.32, 4.5);
 
   if (distance < minDistancePx) {
     drawState.activeStroke.lastUpdatedAt = nowMs;
     return false;
   }
 
+  const maxSegmentLength = settings.handwritingAssist
+    ? clamp(settings.brushSize * 1.4, 3.2, 9)
+    : clamp(settings.brushSize * 2.1, 5.5, 16);
+  const bridgeSegments = clamp(Math.ceil(distance / maxSegmentLength), 1, 9);
+
+  if (bridgeSegments > 1) {
+    for (let index = 1; index < bridgeSegments; index += 1) {
+      const t = index / bridgeSegments;
+      drawState.activeStroke.points.push({
+        x: previousPoint.x + (nextPoint.x - previousPoint.x) * t,
+        y: previousPoint.y + (nextPoint.y - previousPoint.y) * t
+      });
+    }
+  }
+
   drawState.activeStroke.points.push(nextPoint);
   drawState.activeStroke.lastUpdatedAt = nowMs;
 
-  if (drawState.activeStroke.points.length > 480) {
+  const maxLivePoints = settings.handwritingAssist ? 900 : 480;
+
+  while (drawState.activeStroke.points.length > maxLivePoints) {
     drawState.activeStroke.points.shift();
   }
 
@@ -1056,15 +1679,80 @@ function eraseNearestStroke(drawState, point, radiusPx) {
   return false;
 }
 
-function pruneDrawing(drawState, settings, nowMs) {
+function pruneDrawing(drawState, settings, nowMs, idleTimeoutMs) {
   if (settings.autoFade) {
     drawState.strokes = drawState.strokes.filter(
       (stroke) => nowMs - stroke.lastUpdatedAt <= settings.strokeLifetimeMs
     );
   }
 
-  if (drawState.activeStroke && nowMs - drawState.activeStroke.lastUpdatedAt > 620) {
+  if (drawState.activeStroke && nowMs - drawState.activeStroke.lastUpdatedAt > idleTimeoutMs) {
     finalizeActiveStroke(drawState, settings.maxSavedStrokes);
+  }
+}
+
+function stampSprayBrush(context, stroke, strokeOpacity) {
+  const points = stroke.points;
+
+  if (!Array.isArray(points) || points.length < 2) {
+    return;
+  }
+
+  const sprayRadius = stroke.width * 1.35;
+  const burstCount = clamp(Math.round(stroke.width * 0.7), 3, 16);
+  context.fillStyle = rgba(stroke.color, strokeOpacity * 0.12);
+
+  for (let index = 1; index < points.length; index += 1) {
+    const from = points[index - 1];
+    const to = points[index];
+    const distance = Math.hypot(to.x - from.x, to.y - from.y);
+    const spraySteps = clamp(Math.round(distance / Math.max(2, stroke.width * 0.65)), 1, 30);
+
+    for (let step = 0; step <= spraySteps; step += 1) {
+      const t = spraySteps === 0 ? 0 : step / spraySteps;
+      const x = from.x + (to.x - from.x) * t;
+      const y = from.y + (to.y - from.y) * t;
+
+      for (let burst = 0; burst < burstCount; burst += 1) {
+        const angle = Math.random() * Math.PI * 2;
+        const radius = Math.random() * sprayRadius;
+        const dotX = x + Math.cos(angle) * radius;
+        const dotY = y + Math.sin(angle) * radius;
+        const dotSize = Math.max(0.5, stroke.width * randomRange(0.05, 0.16));
+
+        context.beginPath();
+        context.arc(dotX, dotY, dotSize, 0, Math.PI * 2);
+        context.fill();
+      }
+    }
+  }
+}
+
+function stampWatercolorBleed(context, stroke, strokeOpacity) {
+  const points = stroke.points;
+
+  if (!Array.isArray(points) || points.length < 1) {
+    return;
+  }
+
+  for (let index = 0; index < points.length; index += 2) {
+    const point = points[index];
+    const bloomRadius = stroke.width * randomRange(0.62, 1.36);
+    const bloom = context.createRadialGradient(
+      point.x,
+      point.y,
+      bloomRadius * 0.12,
+      point.x,
+      point.y,
+      bloomRadius
+    );
+
+    bloom.addColorStop(0, rgba(stroke.color, strokeOpacity * 0.16));
+    bloom.addColorStop(1, rgba(stroke.color, 0));
+    context.fillStyle = bloom;
+    context.beginPath();
+    context.arc(point.x, point.y, bloomRadius, 0, Math.PI * 2);
+    context.fill();
   }
 }
 
@@ -1074,31 +1762,91 @@ function drawAirStroke(context, stroke, alphaFactor) {
   }
 
   const strokeOpacity = stroke.opacity * alphaFactor;
+  const brushStyle = stroke.style ?? 'neon';
+  let lineWidth = stroke.width;
+  let lineCap = 'round';
+  let lineJoin = 'round';
+  let shadowBlur = stroke.glow;
+  let compositeMode = stroke.blendMode;
+  let highlightOpacity = 0.48 * alphaFactor;
+
+  if (brushStyle === 'ink') {
+    shadowBlur = 0;
+    compositeMode = 'source-over';
+    highlightOpacity = 0.22 * alphaFactor;
+  } else if (brushStyle === 'marker') {
+    lineWidth = stroke.width * 1.24;
+    lineCap = 'square';
+    lineJoin = 'bevel';
+    shadowBlur = Math.max(1, stroke.glow * 0.22);
+    compositeMode = 'source-over';
+    highlightOpacity = 0.16 * alphaFactor;
+  } else if (brushStyle === 'spray') {
+    lineWidth = Math.max(1, stroke.width * 0.58);
+    shadowBlur = Math.max(2, stroke.glow * 0.36);
+    highlightOpacity = 0.12 * alphaFactor;
+  } else if (brushStyle === 'calligraphy') {
+    lineWidth = stroke.width * 1.08;
+    lineCap = 'butt';
+    lineJoin = 'miter';
+    shadowBlur = Math.max(2, stroke.glow * 0.35);
+    highlightOpacity = 0.24 * alphaFactor;
+  } else if (brushStyle === 'watercolor') {
+    lineWidth = stroke.width * 1.42;
+    lineCap = 'round';
+    lineJoin = 'round';
+    shadowBlur = Math.max(8, stroke.glow * 0.9);
+    compositeMode = 'source-over';
+    highlightOpacity = 0.08 * alphaFactor;
+  }
 
   context.save();
-  context.globalCompositeOperation = stroke.blendMode;
-  context.lineCap = 'round';
-  context.lineJoin = 'round';
+  context.globalCompositeOperation = compositeMode;
+  context.lineCap = lineCap;
+  context.lineJoin = lineJoin;
   context.shadowColor = rgba(stroke.color, strokeOpacity);
-  context.shadowBlur = stroke.glow;
+  context.shadowBlur = shadowBlur;
   context.strokeStyle = rgba(stroke.color, strokeOpacity);
-  context.lineWidth = stroke.width;
+  context.lineWidth = lineWidth;
 
   if (stroke.pattern === 'dashed') {
-    context.setLineDash([stroke.width * 2.5, stroke.width * 1.8]);
+    context.setLineDash([lineWidth * 2.5, lineWidth * 1.8]);
   } else if (stroke.pattern === 'dotted') {
-    context.setLineDash([1, stroke.width * 1.7]);
+    context.setLineDash([1, lineWidth * 1.7]);
   } else {
     context.setLineDash([]);
+  }
+
+  if (brushStyle === 'watercolor') {
+    stampWatercolorBleed(context, stroke, strokeOpacity);
   }
 
   createPathFromPoints(context, stroke.points);
   context.stroke();
 
+  if (brushStyle === 'spray') {
+    stampSprayBrush(context, stroke, strokeOpacity);
+  }
+
+  if (brushStyle === 'calligraphy') {
+    context.shadowBlur = Math.max(1, shadowBlur * 0.4);
+    context.strokeStyle = rgba(stroke.color, strokeOpacity * 0.58);
+    context.lineWidth = Math.max(1, lineWidth * 0.58);
+
+    context.beginPath();
+    const firstPoint = stroke.points[0];
+    context.moveTo(firstPoint.x + lineWidth * 0.22, firstPoint.y - lineWidth * 0.12);
+    for (let index = 1; index < stroke.points.length; index += 1) {
+      const entry = stroke.points[index];
+      context.lineTo(entry.x + lineWidth * 0.22, entry.y - lineWidth * 0.12);
+    }
+    context.stroke();
+  }
+
   context.shadowBlur = 0;
   context.setLineDash([]);
-  context.strokeStyle = `rgba(245, 252, 255, ${0.48 * alphaFactor})`;
-  context.lineWidth = Math.max(1.3, stroke.width * 0.32);
+  context.strokeStyle = `rgba(245, 252, 255, ${highlightOpacity})`;
+  context.lineWidth = Math.max(1.1, lineWidth * 0.32);
   createPathFromPoints(context, stroke.points);
   context.stroke();
 
@@ -1120,8 +1868,8 @@ function drawStrokeWithVariants(context, stroke, alphaFactor, settings, width, h
   });
 }
 
-function drawAirDrawing(context, drawState, settings, nowMs) {
-  pruneDrawing(drawState, settings, nowMs);
+function drawAirDrawing(context, drawState, settings, nowMs, idleTimeoutMs) {
+  pruneDrawing(drawState, settings, nowMs, idleTimeoutMs);
   const width = context.canvas.width;
   const height = context.canvas.height;
 
@@ -1274,7 +2022,7 @@ function resolveStableGesture({
   if (rawGesture === 'UNKNOWN') {
     if (stableCandidate && stableCandidate !== 'UNKNOWN') {
       resolvedGesture = stableCandidate;
-    } else if (now - reliableGestureRef.current.at <= 220) {
+    } else if (now - reliableGestureRef.current.at <= UNKNOWN_GESTURE_HOLD_MS) {
       resolvedGesture = reliableGestureRef.current.gesture;
     }
   }
@@ -1315,13 +2063,20 @@ export function useHandTracking({
   const noHandsFrameRef = useRef(0);
   const usingRecoveryOptionsRef = useRef(false);
   const lastOptionsSwapAtRef = useRef(0);
+  const lastHandsSendAtRef = useRef(0);
   const drawStateRef = useRef({
     strokes: [],
     activeStroke: null,
     redoStack: [],
     particles: [],
     lastEraseAt: 0,
-    lastParticleAt: 0
+    lastParticleAt: 0,
+    lastGestureDrawAt: 0,
+    startTriggerFrames: 0,
+    startTriggerGesture: 'NO_HANDS',
+    adaptivePointerNorm: null,
+    adaptivePointerVelocityNorm: { x: 0, y: 0, z: 0 },
+    adaptivePointerAt: 0
   });
 
   useEffect(() => {
@@ -1357,7 +2112,13 @@ export function useHandTracking({
       redoStack: [],
       particles: [],
       lastEraseAt: 0,
-      lastParticleAt: 0
+      lastParticleAt: 0,
+      lastGestureDrawAt: 0,
+      startTriggerFrames: 0,
+      startTriggerGesture: 'NO_HANDS',
+      adaptivePointerNorm: null,
+      adaptivePointerVelocityNorm: { x: 0, y: 0, z: 0 },
+      adaptivePointerAt: 0
     };
 
     gestureHistoryRef.current = [];
@@ -1409,47 +2170,125 @@ export function useHandTracking({
       };
     }
 
-    const primaryHand = multiHandLandmarks?.[0] ?? null;
-    const primaryTip = primaryHand?.[8];
+    const primaryHand = choosePrimaryHandAdaptive(multiHandLandmarks, drawState, nowMs);
+    const adaptiveTip = resolveAdaptiveDrawTip(multiHandLandmarks, drawState, nowMs);
+    const primaryTip = adaptiveTip ?? getIndexTip(primaryHand);
+    const primaryPalm = getPalmCenter(primaryHand);
+    const allowOpenHandPoseFallback =
+      settings.drawMode === 'erase' || settings.triggerGesture === 'OPEN_HAND';
+    const openHandDetected =
+      gesture === 'OPEN_HAND' ||
+      (allowOpenHandPoseFallback && isOpenHandPoseStableForErase(primaryHand));
+    const openHandEraseGesture =
+      openHandDetected &&
+      (settings.drawMode === 'erase' ||
+        settings.triggerGesture === 'OPEN_HAND' ||
+        (settings.triggerGesture === 'AUTO' && gesture === 'OPEN_HAND'));
+    const shouldErase = settings.drawMode === 'erase' || openHandEraseGesture;
     const gestureMatches = isGestureTriggered({
       settings,
       gesture,
       primaryHand
     });
+    const triggerKey = settings.triggerGesture === 'AUTO' ? gesture : settings.triggerGesture;
+    const requiredStartFrames = settings.handwritingAssist
+      ? DRAW_START_CONFIRM_FRAMES.handwriting
+      : DRAW_START_CONFIRM_FRAMES.standard;
+    let effectiveGestureMatch = gestureMatches;
 
-    if (!gestureMatches || !primaryTip) {
+    if (!shouldErase && !drawState.activeStroke) {
+      const stableFrames = updateDrawStartLock(drawState, triggerKey, gestureMatches);
+      effectiveGestureMatch = gestureMatches && stableFrames >= requiredStartFrames;
+    } else if (!gestureMatches) {
+      resetDrawStartLock(drawState);
+    }
+
+    if (openHandEraseGesture) {
+      effectiveGestureMatch = true;
+    }
+
+    const triggerGraceMs = settings.handwritingAssist
+      ? DRAW_TRIGGER_GRACE_MS.handwriting
+      : DRAW_TRIGGER_GRACE_MS.standard;
+    const hasRecentTrigger =
+      Boolean(drawState.activeStroke) && nowMs - drawState.lastGestureDrawAt <= triggerGraceMs;
+
+    const pointerSource =
+      shouldErase
+        ? openHandEraseGesture
+          ? primaryPalm ?? primaryTip
+          : primaryTip ?? primaryPalm
+        : primaryTip;
+
+    if (!pointerSource) {
+      releaseAdaptivePointerIfStale(drawState, nowMs);
+      resetDrawStartLock(drawState);
+
+      if (!shouldErase && hasRecentTrigger) {
+        return {
+          isGestureDrawing: true,
+          lastAction: null,
+          activeTool: 'draw'
+        };
+      }
+
       const finalized = finalizeActiveStroke(drawState, settings.maxSavedStrokes);
 
       return {
         isGestureDrawing: false,
-        lastAction: finalized ? 'Stroke completed' : null
+        lastAction: finalized ? 'Stroke completed' : null,
+        activeTool: shouldErase ? 'erase' : 'draw'
       };
     }
 
-    const point = toCanvasPoint(primaryTip, canvasRef.current);
+    const allowGraceDraw = !shouldErase && settings.handwritingAssist && hasRecentTrigger;
 
-    if (settings.drawMode === 'erase') {
+    if (!effectiveGestureMatch && !allowGraceDraw) {
+      const finalized = finalizeActiveStroke(drawState, settings.maxSavedStrokes);
+
+      return {
+        isGestureDrawing: false,
+        lastAction: finalized ? 'Stroke completed' : null,
+        activeTool: shouldErase ? 'erase' : 'draw'
+      };
+    }
+
+    if (effectiveGestureMatch && !shouldErase) {
+      drawState.lastGestureDrawAt = nowMs;
+    }
+
+    const point = toCanvasPoint(pointerSource, canvasRef.current);
+
+    if (shouldErase) {
       finalizeActiveStroke(drawState, settings.maxSavedStrokes);
 
       if (nowMs - drawState.lastEraseAt < 95) {
         return {
           isGestureDrawing: true,
-          lastAction: null
+          lastAction: null,
+          activeTool: 'erase'
         };
       }
 
       drawState.lastEraseAt = nowMs;
-      const eraseRadius = Math.max(14, settings.brushSize * 3.1);
+      const eraseRadius = openHandEraseGesture
+        ? Math.max(40, settings.brushSize * 6.8)
+        : Math.max(14, settings.brushSize * 3.1);
       const removed = eraseNearestStroke(drawState, point, eraseRadius);
 
       return {
         isGestureDrawing: true,
-        lastAction: removed ? 'Stroke erased' : null
+        lastAction: removed ? 'Stroke erased' : null,
+        activeTool: 'erase'
       };
     }
 
     const strokeStarted = !drawState.activeStroke;
     const added = appendStrokePoint(drawState, point, settings, nowMs);
+
+    if (strokeStarted) {
+      resetDrawStartLock(drawState);
+    }
 
     const canEmitParticles = settings.particleMode !== 'none';
     const particleInterval = resolveParticleIntervalMs(settings);
@@ -1470,7 +2309,8 @@ export function useHandTracking({
         ? 'Stroke started'
         : added
           ? 'Stroke drawing'
-          : null
+          : null,
+      activeTool: 'draw'
     };
   }, [canvasRef]);
 
@@ -1490,6 +2330,9 @@ export function useHandTracking({
 
       const settings = drawSettingsRef.current;
       const drawState = drawStateRef.current;
+      const idleTimeoutMs = settings.handwritingAssist
+        ? ACTIVE_STROKE_IDLE_TIMEOUT_MS.handwriting
+        : ACTIVE_STROKE_IDLE_TIMEOUT_MS.standard;
 
       context.save();
       context.clearRect(0, 0, canvas.width, canvas.height);
@@ -1497,7 +2340,7 @@ export function useHandTracking({
       const nowMs = performance.now();
       const drawFrame = updateDrawingFromGesture(multiHandLandmarks, gesture, nowMs);
       drawPracticeTemplate(context, canvas, settings, nowMs);
-      drawAirDrawing(context, drawState, settings, nowMs);
+      drawAirDrawing(context, drawState, settings, nowMs, idleTimeoutMs);
       drawParticleLayer(context, drawState, settings, nowMs);
 
       if (settings.showFusionLink && gesture === 'TWO_HANDS') {
@@ -1540,7 +2383,8 @@ export function useHandTracking({
 
       updateDrawStatsState(setDrawStats, drawState, settings, {
         isGestureDrawing: drawFrame.isGestureDrawing,
-        lastAction: resolvedLastAction
+        lastAction: resolvedLastAction,
+        activeTool: drawFrame.activeTool ?? settings.drawMode
       });
     },
     [canvasRef, syncCanvasSize, updateDrawingFromGesture]
@@ -1631,6 +2475,17 @@ export function useHandTracking({
       video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
       !processingRef.current
     ) {
+      const now = performance.now();
+      const sendIntervalMs = drawSettingsRef.current.handwritingAssist
+        ? HANDS_SEND_INTERVAL_MS.handwriting
+        : HANDS_SEND_INTERVAL_MS.standard;
+
+      if (now - lastHandsSendAtRef.current < sendIntervalMs) {
+        animationFrameRef.current = requestAnimationFrame(processFrame);
+        return;
+      }
+
+      lastHandsSendAtRef.current = now;
       processingRef.current = true;
 
       try {
@@ -1698,6 +2553,7 @@ export function useHandTracking({
       noHandsFrameRef.current = 0;
       usingRecoveryOptionsRef.current = false;
       lastOptionsSwapAtRef.current = performance.now();
+      lastHandsSendAtRef.current = 0;
       activeRef.current = true;
       setIsTracking(true);
 
@@ -1729,7 +2585,13 @@ export function useHandTracking({
       redoStack: [],
       particles: [],
       lastEraseAt: 0,
-      lastParticleAt: 0
+      lastParticleAt: 0,
+      lastGestureDrawAt: 0,
+      startTriggerFrames: 0,
+      startTriggerGesture: 'NO_HANDS',
+      adaptivePointerNorm: null,
+      adaptivePointerVelocityNorm: { x: 0, y: 0, z: 0 },
+      adaptivePointerAt: 0
     };
 
     lastActionRef.current = 'Drawing cleared';
