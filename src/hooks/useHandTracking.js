@@ -232,7 +232,8 @@ const PRACTICE_TEMPLATES = [
   'letter-a',
   '3d-orb',
   '3d-cube',
-  '3d-face'
+  '3d-face',
+  '3d-bear'
 ];
 const TRIGGER_GESTURES = ['AUTO', 'PINCH', 'POINT', 'V_SIGN', 'OPEN_HAND', 'FIST'];
 const PARTICLE_MODES = ['none', 'spark', 'magic', 'ember', 'smoke'];
@@ -696,6 +697,133 @@ function draw3DFaceTemplate(context, cx, cy, size, color, opacity, nowMs) {
   context.stroke();
 }
 
+function draw3DBearTemplate(context, cx, cy, size, color, opacity, nowMs) {
+  const pulse = 1 + Math.sin(nowMs * 0.0026) * 0.02;
+  const headRadius = size * 0.46 * pulse;
+  const earRadius = headRadius * 0.36;
+  const headY = cy + size * 0.06;
+
+  context.setLineDash([]);
+
+  const earCenters = [
+    { x: cx - headRadius * 0.58, y: headY - headRadius * 0.68 },
+    { x: cx + headRadius * 0.58, y: headY - headRadius * 0.68 }
+  ];
+
+  earCenters.forEach((ear) => {
+    const earGradient = context.createRadialGradient(
+      ear.x - earRadius * 0.2,
+      ear.y - earRadius * 0.2,
+      earRadius * 0.1,
+      ear.x,
+      ear.y,
+      earRadius
+    );
+    earGradient.addColorStop(0, rgba([255, 234, 220], opacity * 0.55));
+    earGradient.addColorStop(0.45, rgba(color, opacity * 0.42));
+    earGradient.addColorStop(1, rgba([68, 48, 38], opacity * 0.5));
+
+    context.fillStyle = earGradient;
+    context.beginPath();
+    context.arc(ear.x, ear.y, earRadius, 0, Math.PI * 2);
+    context.fill();
+
+    context.fillStyle = rgba([255, 196, 184], opacity * 0.4);
+    context.beginPath();
+    context.arc(ear.x, ear.y, earRadius * 0.46, 0, Math.PI * 2);
+    context.fill();
+
+    context.strokeStyle = rgba([245, 242, 238], opacity * 0.72);
+    context.lineWidth = Math.max(1.2, size * 0.008);
+    context.beginPath();
+    context.arc(ear.x, ear.y, earRadius, 0, Math.PI * 2);
+    context.stroke();
+  });
+
+  const headGradient = context.createRadialGradient(
+    cx - headRadius * 0.22,
+    headY - headRadius * 0.3,
+    headRadius * 0.08,
+    cx,
+    headY,
+    headRadius * 1.2
+  );
+  headGradient.addColorStop(0, rgba([255, 243, 228], opacity * 0.58));
+  headGradient.addColorStop(0.4, rgba(color, opacity * 0.4));
+  headGradient.addColorStop(1, rgba([58, 40, 30], opacity * 0.54));
+
+  context.fillStyle = headGradient;
+  context.beginPath();
+  context.arc(cx, headY, headRadius, 0, Math.PI * 2);
+  context.fill();
+
+  context.strokeStyle = rgba([248, 245, 238], opacity * 0.82);
+  context.lineWidth = Math.max(1.4, size * 0.011);
+  context.beginPath();
+  context.arc(cx, headY, headRadius, 0, Math.PI * 2);
+  context.stroke();
+
+  const eyeY = headY - headRadius * 0.14;
+  const eyeOffset = headRadius * 0.34;
+
+  context.fillStyle = rgba([20, 20, 26], opacity * 0.82);
+  context.beginPath();
+  context.arc(cx - eyeOffset, eyeY, headRadius * 0.08, 0, Math.PI * 2);
+  context.arc(cx + eyeOffset, eyeY, headRadius * 0.08, 0, Math.PI * 2);
+  context.fill();
+
+  context.fillStyle = rgba([255, 255, 255], opacity * 0.72);
+  context.beginPath();
+  context.arc(cx - eyeOffset + headRadius * 0.026, eyeY - headRadius * 0.026, headRadius * 0.025, 0, Math.PI * 2);
+  context.arc(cx + eyeOffset + headRadius * 0.026, eyeY - headRadius * 0.026, headRadius * 0.025, 0, Math.PI * 2);
+  context.fill();
+
+  const snoutGradient = context.createRadialGradient(
+    cx,
+    headY + headRadius * 0.2,
+    headRadius * 0.08,
+    cx,
+    headY + headRadius * 0.2,
+    headRadius * 0.5
+  );
+  snoutGradient.addColorStop(0, rgba([255, 238, 226], opacity * 0.74));
+  snoutGradient.addColorStop(1, rgba([216, 184, 164], opacity * 0.66));
+
+  context.fillStyle = snoutGradient;
+  context.beginPath();
+  context.ellipse(cx, headY + headRadius * 0.24, headRadius * 0.4, headRadius * 0.3, 0, 0, Math.PI * 2);
+  context.fill();
+
+  context.strokeStyle = rgba([246, 240, 232], opacity * 0.62);
+  context.lineWidth = Math.max(1, size * 0.006);
+  context.beginPath();
+  context.ellipse(cx, headY + headRadius * 0.24, headRadius * 0.4, headRadius * 0.3, 0, 0, Math.PI * 2);
+  context.stroke();
+
+  context.fillStyle = rgba([32, 26, 28], opacity * 0.86);
+  context.beginPath();
+  context.ellipse(cx, headY + headRadius * 0.12, headRadius * 0.11, headRadius * 0.08, 0, 0, Math.PI * 2);
+  context.fill();
+
+  context.strokeStyle = rgba([36, 22, 20], opacity * 0.74);
+  context.lineWidth = Math.max(1.1, size * 0.008);
+  context.beginPath();
+  context.moveTo(cx, headY + headRadius * 0.17);
+  context.lineTo(cx, headY + headRadius * 0.3);
+  context.moveTo(cx, headY + headRadius * 0.3);
+  context.quadraticCurveTo(cx - headRadius * 0.12, headY + headRadius * 0.39, cx - headRadius * 0.2, headY + headRadius * 0.31);
+  context.moveTo(cx, headY + headRadius * 0.3);
+  context.quadraticCurveTo(cx + headRadius * 0.12, headY + headRadius * 0.39, cx + headRadius * 0.2, headY + headRadius * 0.31);
+  context.stroke();
+
+  context.strokeStyle = rgba([194, 214, 255], opacity * 0.42);
+  context.lineWidth = Math.max(1, size * 0.007);
+  context.beginPath();
+  context.moveTo(cx - headRadius * 0.8, headY + headRadius * 0.88);
+  context.quadraticCurveTo(cx, headY + headRadius * 1.18, cx + headRadius * 0.8, headY + headRadius * 0.88);
+  context.stroke();
+}
+
 function drawPracticeTemplate(context, canvas, settings, nowMs) {
   if (!settings.templateEnabled) {
     return;
@@ -718,7 +846,8 @@ function drawPracticeTemplate(context, canvas, settings, nowMs) {
   const is3DTemplate =
     settings.templateType === '3d-orb' ||
     settings.templateType === '3d-cube' ||
-    settings.templateType === '3d-face';
+    settings.templateType === '3d-face' ||
+    settings.templateType === '3d-bear';
 
   context.setLineDash(is3DTemplate ? [] : [10, 8]);
 
@@ -746,6 +875,8 @@ function drawPracticeTemplate(context, canvas, settings, nowMs) {
     draw3DCubeTemplate(context, centerX, centerY, baseSize, color, settings.templateOpacity, nowMs);
   } else if (settings.templateType === '3d-face') {
     draw3DFaceTemplate(context, centerX, centerY, baseSize, color, settings.templateOpacity, nowMs);
+  } else if (settings.templateType === '3d-bear') {
+    draw3DBearTemplate(context, centerX, centerY, baseSize, color, settings.templateOpacity, nowMs);
   } else {
     drawStarPath(context, centerX, centerY, baseSize * 0.78, baseSize * 0.34, 5);
     context.fill();

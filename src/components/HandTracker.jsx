@@ -50,7 +50,8 @@ const TEMPLATE_PRESETS = [
   { value: 'letter-a', label: 'Letter A' },
   { value: '3d-orb', label: '3D Orb' },
   { value: '3d-cube', label: '3D Cube' },
-  { value: '3d-face', label: '3D Face' }
+  { value: '3d-face', label: '3D Face' },
+  { value: '3d-bear', label: '3D Bear' }
 ];
 
 export default function HandTracker({ videoRef, canvasRef, enabled, compactMode = false }) {
